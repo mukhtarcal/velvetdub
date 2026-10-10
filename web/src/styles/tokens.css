@@ -1,0 +1,52 @@
+/* Design tokens from docs/BRAND.md. Keep in sync with that file. Dark only. */
+:root {
+  /* grounds */
+  --ground: #0f0b0b;
+  --stage-black: #070505;
+  --surface-deep: #140d0d;
+  --panel: #1a1312;
+  --raised: #26191a;
+  --track: #221817;
+
+  /* lines */
+  --line: #3a2a2a;
+  --border-control: #4d3838;
+  --border-strong: #5a4444;
+
+  /* text */
+  --ink: #f3ece4;
+  --ink-soft: #dccfc4;
+  --muted: #b3a398;
+  --faint: #93847b;
+
+  /* velvet (the house) */
+  --velvet: #9b1b24;
+  --velvet-deep: #5e0f15;
+  --velvet-mid: #8a1820;
+  --velvet-sheen: #b8383f;
+  --velvet-shadow: #2e070b;
+  --on-velvet: #f0d9d2;
+
+  /* signal: a filter is acting. Never for buttons or decoration. */
+  --signal: #e5484f;
+
+  /* brass and gilt: thin lines, dots and small labels only. Never a fill. */
+  --brass: #d9a441;
+  --gilt: #c99a3e;
+  --fringe: #b88a34;
+
+  /* tickets */
+  --ticket-ink: #1a1010;
+  --ticket-red: #7a1520;
+
+  /* subtitles */
+  --subtitle-second: #e9d9b4;
+
+  /* type */
+  --font-display: 'Limelight', serif;
+  --font-body: 'Archivo', system-ui, sans-serif;
+
+  /* shape: square corners, controls get 2px */
+  --radius-control: 2px;
+  --hit-target: 44px;
+}

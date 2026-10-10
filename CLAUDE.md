@@ -1,0 +1,23 @@
+# Velvet Dub
+
+Personal, private tool: filter, subtitle and (Phase 2) dub films. Runs locally on one Mac.
+
+Read first: `docs/PLAN.md` (phases, architecture, extensibility rules) and `docs/BRAND.md` (all UI must follow it; the PDFs in `docs/` are the visual originals).
+
+## Commands
+- Python (from repo root; never use pip or global installs): `uv sync`, `uv run pytest`, `uv run ruff check . && uv run ruff format .`, `uv run mypy`
+- CLI: `uv run vd --help` (`doctor`, `providers`, `process <file> --subs en,es`, `titles`, `serve`)
+- Web: `source ~/.nvm/nvm.sh && nvm use 22` then `npm --prefix web run dev|build|lint|test` (npm only, no pnpm)
+- API on 127.0.0.1:8765 (`uv run vd serve`), web on 127.0.0.1:5273 (proxies `/api`). Unusual ports on purpose: other local projects use 8000/5173.
+
+## Rules
+- **Work machine: change nothing global.** Everything installs inside this folder (`.venv`, `web/node_modules`). No `brew install`, `npm -g`, or edits outside the repo without asking.
+- **Secrets only in `.env`** (gitignored). Never print, log or commit key values. The project `.env` overrides the shell on purpose (the shell `ANTHROPIC_API_KEY` may be a work key). Tests must never read `.env` (`Settings(_env_file=None)`).
+- **Depend on interfaces; wire concrete classes only in `container.py`.** New vendor = new file in `providers/` + registered factory; selection is `.env`. New pipeline step = new `Stage`, added in `pipeline/stages/__init__.py`.
+- **Detection vs decision:** stored filter events are profile-independent; `FilterPolicy` applies a `FilterProfile` at playback. Don't bake actions into stored detections.
+- **Multi-user seam:** every owned record has `owner_id`; storage calls take an owner id; the API gets the user from `IdentityProvider`. Don't hardcode the local user outside the CLI and `LocalIdentityProvider`.
+- The source video is never modified; filters are timestamp lists applied at playback.
+- Domain layer (`domain/`) is pure: no I/O, no vendor SDKs.
+- Done means: ruff, mypy (strict), pytest, and for web `build`, `lint`, `test` all pass.
+- Copy and UI follow `docs/BRAND.md` (dark only, square corners, one primary button per screen, signal red only for active filters, no emoji, plain words in anything actionable).
+- Don't commit or push unless asked.

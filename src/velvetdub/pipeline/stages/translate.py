@@ -1,0 +1,42 @@
+from pathlib import Path
+
+from velvetdub.domain.transcript import Transcript
+from velvetdub.domain.translation import TranslatedSegment, Translation
+from velvetdub.pipeline.context import PipelineContext
+from velvetdub.pipeline.stage import Stage
+from velvetdub.storage.artifacts import read_model, write_model
+
+
+class TranslateStage(Stage):
+    """One translation file per target language (subtitle and, later, dub languages).
+
+    A target equal to the spoken language is written as an identity translation, so downstream
+    stages treat every language the same way.
+    """
+
+    name = "translate"
+
+    def inputs(self, ctx: PipelineContext) -> list[Path]:
+        return [ctx.paths.transcript]
+
+    def outputs(self, ctx: PipelineContext) -> list[Path]:
+        return [ctx.paths.translation(lang) for lang in ctx.options.target_languages]
+
+    def config_key(self, ctx: PipelineContext) -> str:
+        languages = ",".join(ctx.options.target_languages)
+        return f"{ctx.providers.translator.identity}|{languages}"
+
+    def run(self, ctx: PipelineContext) -> None:
+        transcript = read_model(ctx.paths.transcript, Transcript)
+        for language in ctx.options.target_languages:
+            if language == transcript.language:
+                translation = Translation(
+                    language=language,
+                    segments=[
+                        TranslatedSegment(segment_id=s.id, text=s.text, target_duration=s.duration)
+                        for s in transcript.segments
+                    ],
+                )
+            else:
+                translation = ctx.providers.translator.translate(transcript, language)
+            write_model(ctx.paths.translation(language), translation)

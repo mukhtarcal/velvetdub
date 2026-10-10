@@ -1,0 +1,373 @@
+/* App shell, shared components. Tokens live in styles/tokens.css (docs/BRAND.md). */
+
+.shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 100vh;
+}
+
+/* Smooth velvet with one soft sheen, no stripes. */
+.sidebar {
+  background: linear-gradient(
+    90deg,
+    var(--velvet-deep) 0%,
+    var(--velvet) 18%,
+    var(--velvet) 82%,
+    var(--velvet-deep) 100%
+  );
+  color: var(--on-velvet);
+  padding: 28px 20px;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  font-size: 29px;
+  color: var(--ink);
+}
+
+/* The double rule under the wordmark is one of gilt's few jobs. */
+.gilt-rule {
+  height: 5px;
+  margin: 12px 0 24px;
+  border-top: 1px solid var(--gilt);
+  border-bottom: 1px solid var(--gilt);
+}
+
+.sidebar ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sidebar a {
+  min-height: var(--hit-target);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--on-velvet);
+  text-decoration: none;
+}
+
+.sidebar a.active {
+  background: var(--velvet-deep);
+  color: var(--ink);
+}
+
+.content {
+  padding: 40px 48px 80px;
+  max-width: 1100px;
+}
+
+.page-header h1 {
+  margin: 8px 0 20px;
+}
+
+.hairline {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 24px 0;
+}
+
+/* ---- controls --------------------------------------------------------------------- */
+
+a.button,
+button.primary,
+button.secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--hit-target);
+  padding: 0 20px;
+  border-radius: var(--radius-control);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.button.primary,
+button.primary {
+  background: var(--velvet);
+  color: var(--ink);
+  border: 1px solid var(--velvet);
+}
+
+a.button.secondary,
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button.text,
+a.text {
+  background: none;
+  border: 0;
+  color: var(--ink);
+  text-decoration: underline;
+  padding: 0 4px;
+  min-height: var(--hit-target);
+  cursor: pointer;
+  font: inherit;
+}
+
+label.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+input[type='text'],
+select,
+textarea {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  min-height: var(--hit-target);
+  padding: 0 12px;
+  font: inherit;
+}
+
+textarea {
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A chosen option fills velvet; unchosen ones are outlined. */
+button.chip {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+  padding: 0 14px;
+}
+
+button.chip[aria-pressed='true'] {
+  background: var(--velvet);
+  border-color: var(--velvet);
+}
+
+.error-note {
+  color: var(--ink);
+  border-left: 3px solid var(--signal);
+  padding: 8px 12px;
+  background: var(--panel);
+}
+
+/* ---- panels ----------------------------------------------------------------------- */
+
+/* Red top rule on panels is velvet, not signal: signal means a filter is acting. */
+.panel {
+  background: var(--surface-deep);
+  border-top: 2px solid var(--velvet);
+  padding: 20px 24px;
+  margin-bottom: 24px;
+}
+
+.panel h2 {
+  margin-bottom: 12px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.row-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.meta {
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- library ---------------------------------------------------------------------- */
+
+.title-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.title-row .name {
+  font-size: 18px;
+  color: var(--ink);
+}
+
+/* ---- progress --------------------------------------------------------------------- */
+
+.stage-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.stage-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+
+/* Processing progress is one of signal's jobs. */
+.stage-list li[data-state='running'] {
+  color: var(--signal);
+}
+
+.stage-list li[data-state='done'],
+.stage-list li[data-state='skipped'] {
+  color: var(--ink);
+}
+
+.stage-list li[data-state='failed'] {
+  color: var(--signal);
+  font-weight: 600;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--track);
+  border: 1px solid var(--line);
+}
+
+.progress-bar > div {
+  height: 100%;
+  background: var(--signal);
+}
+
+.drop-zone {
+  background: var(--surface-deep);
+  border: 1px dashed var(--border-strong);
+  padding: 32px;
+  text-align: center;
+}
+
+@media (max-width: 720px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .content {
+    padding: 24px 16px 60px;
+  }
+}
+
+/* ---- review ----------------------------------------------------------------------- */
+
+/* The Filters heading is one of signal's jobs. */
+.signal-heading {
+  color: var(--signal);
+}
+
+.timeline {
+  margin-bottom: 24px;
+}
+
+.lane {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+
+.lane-label {
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.lane-track {
+  position: relative;
+  height: 24px;
+  background: var(--track);
+  border: 1px solid var(--line);
+}
+
+.lane.axis .lane-track {
+  background: none;
+  border: 0;
+  height: 20px;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.lane.axis .lane-track span {
+  position: absolute;
+}
+
+.lane-track .block {
+  position: absolute;
+  top: 2px;
+  bottom: 2px;
+  background: var(--signal);
+}
+
+/* Kept-in moments are outlined, not filled, so the state isn't carried by color alone. */
+.lane-track .block[data-kept='true'] {
+  background: transparent;
+  border: 1px dashed var(--faint);
+}
+
+table.events,
+table.script {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+table.events th,
+table.script th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 14.5px;
+  padding: 8px 12px 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+table.events td,
+table.script td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+
+table.events tr[data-kept='true'] td {
+  color: var(--muted);
+}
+
+table.script textarea {
+  width: 100%;
+}

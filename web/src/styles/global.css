@@ -1,0 +1,89 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 24px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Limelight is one weight: never bold, never all caps, never letter-spaced. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  margin: 0;
+}
+
+h1 {
+  font-size: 54px;
+  line-height: 1.1;
+}
+
+h2 {
+  font-size: 29px;
+}
+
+p {
+  color: var(--ink-soft);
+}
+
+small,
+.small {
+  font-size: 14.5px;
+  line-height: 22px;
+  color: var(--muted);
+}
+
+/* Marquee label: Archivo Bold at 75% width, uppercase, 0.18em spacing, brass. One per block. */
+.marquee-label {
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-stretch: 75%;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--brass);
+}
+
+button {
+  font: inherit;
+  min-height: var(--hit-target);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+
+button.primary {
+  background: var(--velvet);
+  color: var(--ink);
+  border: 1px solid var(--velvet);
+  padding: 0 20px;
+}
+
+button.secondary {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+  padding: 0 20px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}

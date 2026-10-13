@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 from pydantic import BaseModel
 
+from tests.conftest import FakeMediaTool
 from velvetdub.domain.filtering import FilterCategory, Severity
 from velvetdub.errors import ProviderError
 from velvetdub.features.scene_filtering.detections import (
@@ -40,12 +41,13 @@ def detection(
 
 
 def scan(result: ClipResult, offset: float = 0) -> list:  # type: ignore[type-arg]
-    return SceneScanner(StubAnalyzer(result)).scan_clip(Path("c.mp4"), offset=offset).events
+    scanner = SceneScanner(StubAnalyzer(result))
+    return scanner.scan_clip(Path("c.mp4"), offset=offset, media=FakeMediaTool()).events
 
 
 def test_the_scan_asks_with_the_scene_filtering_instructions(tmp_path: Path) -> None:
     analyzer = StubAnalyzer(ClipResult(detections=[]))
-    SceneScanner(analyzer).scan_clip(tmp_path / "c.mp4", offset=0)
+    SceneScanner(analyzer).scan_clip(tmp_path / "c.mp4", offset=0, media=FakeMediaTool())
     assert analyzer.instructions == [PROMPT]
 
 

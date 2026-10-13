@@ -15,9 +15,18 @@ export interface Evaluation {
   blurs: FilterItem[]
 }
 
+const DEFAULT_MUTE_LEAD = 0.25
+const DEFAULT_MUTE_TAIL = 0.12
+
 export interface EngineOptions {
-  /** Seconds added before and after a muted word, so the whole word is covered. */
-  mutePadding?: number
+  /**
+   * Seconds muted before a word's stored start. Larger than the tail on purpose: transcript word
+   * starts run a little late, and the audio you hear lags the playhead, so a mute that begins
+   * exactly on the stored time lets the first part of the word through.
+   */
+  muteLead?: number
+  /** Seconds muted after a word's stored end. */
+  muteTail?: number
   /** Skips closer together than this are treated as one. */
   mergeGap?: number
 }
@@ -32,10 +41,12 @@ export class FilterEngine {
   private readonly skips: SkipRegion[]
   private readonly mutes: FilterItem[]
   private readonly blurs: FilterItem[]
-  private readonly padding: number
+  private readonly lead: number
+  private readonly tail: number
 
   constructor(filters: FilterItem[], options: EngineOptions = {}) {
-    this.padding = options.mutePadding ?? 0.08
+    this.lead = options.muteLead ?? DEFAULT_MUTE_LEAD
+    this.tail = options.muteTail ?? DEFAULT_MUTE_TAIL
     const mergeGap = options.mergeGap ?? 0.25
 
     this.mutes = filters.filter((f) => f.action === 'mute' || f.action === 'replace')
@@ -48,7 +59,7 @@ export class FilterEngine {
 
   evaluate(time: number): Evaluation {
     return {
-      muted: this.mutes.some((m) => time >= m.start - this.padding && time < m.end + this.padding),
+      muted: this.mutes.some((m) => time >= m.start - this.lead && time < m.end + this.tail),
       skip: this.skips.find((s) => time >= s.start && time < s.end) ?? null,
       blurs: this.blurs.filter((b) => time >= b.start && time < b.end),
     }

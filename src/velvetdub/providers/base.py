@@ -5,6 +5,7 @@ vendor SDK, so changing vendor or model is a settings change plus (at most) one 
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from pathlib import Path
 from typing import ClassVar
 
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 
 from velvetdub.domain.dubbing import SeparatedStems, SynthesisRequest, Voice
 from velvetdub.domain.filtering import FilterEvent
+from velvetdub.domain.frames import FrameJudgement, FrameQuestion
 from velvetdub.domain.transcript import Transcript
 from velvetdub.domain.usage import TokenUsage
 
@@ -53,6 +55,16 @@ class VideoAnalyzer(Provider):
     @abstractmethod
     def analyze_clip[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
         """Watch the clip, follow `instructions`, and answer as an instance of `schema`."""
+
+
+class FrameJudge(Provider):
+    """A model that looks at a few frames and says how likely each yes/no condition is."""
+
+    @abstractmethod
+    def judge(
+        self, frames: Sequence[Path], intro: str, questions: Sequence[FrameQuestion]
+    ) -> FrameJudgement:
+        """Show the frames (in order) with `intro`, and answer every question with a 0-1 chance."""
 
 
 class TextModerator(Provider):

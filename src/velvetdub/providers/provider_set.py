@@ -10,11 +10,13 @@ import velvetdub.providers.anthropic
 import velvetdub.providers.assemblyai
 import velvetdub.providers.fake
 import velvetdub.providers.gemini
+import velvetdub.providers.openai_decisions
 import velvetdub.providers.wordlist  # noqa: F401  (imports register the providers)
 from velvetdub.config.settings import Settings
 from velvetdub.errors import ConfigError
 from velvetdub.providers import registry
 from velvetdub.providers.base import (
+    FrameJudge,
     SourceSeparator,
     SpeechSynthesizer,
     TextGenerator,
@@ -41,6 +43,11 @@ class ProviderSet:
     def video_analyzer(self) -> VideoAnalyzer:
         """The model that watches clips (chosen by MODERATION_PROVIDER / MODERATION_MODEL)."""
         return registry.video_analyzers.create(self._settings.moderation_provider, self._settings)
+
+    @cached_property
+    def frame_judge(self) -> FrameJudge:
+        """The model that judges frames (chosen by MODERATION_PROVIDER / MODERATION_MODEL)."""
+        return registry.frame_judges.create(self._settings.moderation_provider, self._settings)
 
     @cached_property
     def text_moderator(self) -> TextModerator:

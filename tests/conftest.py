@@ -20,12 +20,26 @@ class FakeMediaTool(MediaTool):
         return 60.0
 
     def make_scan_clips(
-        self, source: Path, out_dir: Path, *, clip_seconds: int, fps: float, height: int
+        self,
+        source: Path,
+        out_dir: Path,
+        *,
+        clip_seconds: int,
+        fps: float,
+        height: int,
+        crf: int = 30,
     ) -> list[ScanClip]:
         out_dir.mkdir(parents=True, exist_ok=True)
         clip = out_dir / "clip_0000.mp4"
         clip.write_bytes(b"fake-clip")
         return [ScanClip(path=clip, offset=0.0, duration=60.0)]
+
+    def extract_frames(self, clip: Path, out_dir: Path) -> list[Path]:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        frames = [out_dir / f"f_{n:05d}.jpg" for n in range(1, 31)]
+        for frame in frames:
+            frame.write_bytes(b"frame")
+        return frames
 
 
 @pytest.fixture

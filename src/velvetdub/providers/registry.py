@@ -9,6 +9,7 @@ from collections.abc import Callable
 from velvetdub.config.settings import Settings
 from velvetdub.errors import UnknownProviderError
 from velvetdub.providers.base import (
+    FrameJudge,
     Provider,
     SourceSeparator,
     SpeechSynthesizer,
@@ -49,6 +50,7 @@ class ProviderRegistry[P: Provider]:
 transcribers: ProviderRegistry[Transcriber] = ProviderRegistry("transcription")
 text_generators: ProviderRegistry[TextGenerator] = ProviderRegistry("translation")
 video_analyzers: ProviderRegistry[VideoAnalyzer] = ProviderRegistry("visual moderation")
+frame_judges: ProviderRegistry[FrameJudge] = ProviderRegistry("visual moderation (frames)")
 text_moderators: ProviderRegistry[TextModerator] = ProviderRegistry("text moderation")
 separators: ProviderRegistry[SourceSeparator] = ProviderRegistry("source separation")
 synthesizers: ProviderRegistry[SpeechSynthesizer] = ProviderRegistry("speech synthesis")

@@ -4,14 +4,21 @@ Select with e.g. TRANSCRIPTION_PROVIDER=fake.
 """
 
 import re
+from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from velvetdub.config.settings import Settings
+from velvetdub.domain.frames import FrameJudgement, FrameQuestion
 from velvetdub.domain.transcript import Segment, Transcript, Word
-from velvetdub.providers.base import TextGenerator, Transcriber, VideoAnalyzer
-from velvetdub.providers.registry import text_generators, transcribers, video_analyzers
+from velvetdub.providers.base import FrameJudge, TextGenerator, Transcriber, VideoAnalyzer
+from velvetdub.providers.registry import (
+    frame_judges,
+    text_generators,
+    transcribers,
+    video_analyzers,
+)
 
 
 class FakeTranscriber(Transcriber):
@@ -74,6 +81,18 @@ class FakeVideoAnalyzer(VideoAnalyzer):
         )
 
 
+class FakeFrameJudge(FrameJudge):
+    """Offline frame judge: flags the window centred on the 11th frame, and nothing else."""
+
+    name = "fake-frames"
+
+    def judge(
+        self, frames: Sequence[Path], intro: str, questions: Sequence[FrameQuestion]
+    ) -> FrameJudgement:
+        flagged = frames[len(frames) // 2].name == "f_00011.jpg" if frames else False
+        return FrameJudgement(probabilities={q.name: 0.9 if flagged else 0.0 for q in questions})
+
+
 @transcribers.register("fake")
 def _transcriber(settings: Settings) -> Transcriber:
     return FakeTranscriber()
@@ -82,6 +101,11 @@ def _transcriber(settings: Settings) -> Transcriber:
 @text_generators.register("fake")
 def _text_generator(settings: Settings) -> TextGenerator:
     return FakeTextGenerator()
+
+
+@frame_judges.register("fake-frames")
+def _frame_judge(settings: Settings) -> FrameJudge:
+    return FakeFrameJudge(settings.moderation_model)
 
 
 @video_analyzers.register("fake")

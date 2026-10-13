@@ -9,7 +9,7 @@ Providers and models are chosen here by name only. Swapping one is a config chan
 from pathlib import Path
 from typing import Any
 
-from pydantic import SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     anthropic_api_key: SecretStr | None = None
     assemblyai_api_key: SecretStr | None = None
     gemini_api_key: SecretStr | None = None
+    openai_api_key: SecretStr | None = None
     elevenlabs_api_key: SecretStr | None = None
 
     # Storage
@@ -45,6 +46,9 @@ class Settings(BaseSettings):
     visual_sample_fps: float = 1.0
     scan_clip_seconds: int = 600
     scan_height: int = 360
+    # Frame-by-frame scan (OpenAI): a window counts as nudity/sexual content at or above this
+    # chance. Lower is more sensitive and catches subtler scenes, at the cost of false alarms.
+    frame_threshold: float = Field(default=0.5, gt=0, le=1)
 
     # Phase 2 providers (dubbing); unset until needed
     tts_provider: str | None = None
@@ -55,6 +59,7 @@ class Settings(BaseSettings):
         "anthropic_api_key",
         "assemblyai_api_key",
         "gemini_api_key",
+        "openai_api_key",
         "elevenlabs_api_key",
         "transcription_model",
         "tts_provider",

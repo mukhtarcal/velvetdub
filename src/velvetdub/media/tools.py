@@ -36,9 +36,21 @@ class MediaTool(ABC):
 
     @abstractmethod
     def make_scan_clips(
-        self, source: Path, out_dir: Path, *, clip_seconds: int, fps: float, height: int
+        self,
+        source: Path,
+        out_dir: Path,
+        *,
+        clip_seconds: int,
+        fps: float,
+        height: int,
+        crf: int = 30,
     ) -> list[ScanClip]:
-        """Cut the video into small, silent, low-resolution clips for visual analysis."""
+        """Cut the video into small, silent, low-resolution clips for visual analysis.
+        `crf` is the video quality (lower is sharper)."""
+
+    @abstractmethod
+    def extract_frames(self, clip: Path, out_dir: Path) -> list[Path]:
+        """Write every frame of `clip` as a JPEG, in order, and return their paths."""
 
 
 class FFmpegMediaTool(MediaTool):
@@ -67,7 +79,14 @@ class FFmpegMediaTool(MediaTool):
         return float(result.stdout.strip())
 
     def make_scan_clips(
-        self, source: Path, out_dir: Path, *, clip_seconds: int, fps: float, height: int
+        self,
+        source: Path,
+        out_dir: Path,
+        *,
+        clip_seconds: int,
+        fps: float,
+        height: int,
+        crf: int = 30,
     ) -> list[ScanClip]:
         out_dir.mkdir(parents=True, exist_ok=True)
         total = self.probe_duration(source)
@@ -81,7 +100,13 @@ class FFmpegMediaTool(MediaTool):
             command = [self._ffmpeg, "-y", "-ss", str(offset), "-t", str(duration)]
             command += ["-i", str(source), "-an"]
             command += ["-vf", f"fps={fps},scale=-2:{height}"]
-            command += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "30", str(path)]
+            command += ["-c:v", "libx264", "-preset", "veryfast", "-crf", str(crf), str(path)]
             subprocess.run(command, check=True, capture_output=True)
             clips.append(ScanClip(path=path, offset=offset, duration=duration))
         return clips
+
+    def extract_frames(self, clip: Path, out_dir: Path) -> list[Path]:
+        out_dir.mkdir(parents=True, exist_ok=True)
+        command = [self._ffmpeg, "-y", "-i", str(clip), "-q:v", "3", str(out_dir / "f_%05d.jpg")]
+        subprocess.run(command, check=True, capture_output=True)
+        return sorted(out_dir.glob("f_*.jpg"))

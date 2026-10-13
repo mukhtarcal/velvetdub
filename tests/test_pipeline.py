@@ -130,7 +130,14 @@ class TwoClipMedia(FakeMediaTool):
     """A long film cut into two clips, the second starting 10 minutes in."""
 
     def make_scan_clips(
-        self, source: Path, out_dir: Path, *, clip_seconds: int, fps: float, height: int
+        self,
+        source: Path,
+        out_dir: Path,
+        *,
+        clip_seconds: int,
+        fps: float,
+        height: int,
+        crf: int = 30,
     ) -> list[ScanClip]:
         out_dir.mkdir(parents=True, exist_ok=True)
         clips = []

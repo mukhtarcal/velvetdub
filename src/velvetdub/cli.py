@@ -1,8 +1,9 @@
 """Command line: `uv run vd --help`."""
 
 import shutil
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 
@@ -10,6 +11,7 @@ from velvetdub.config.settings import Settings
 from velvetdub.container import build_container
 from velvetdub.domain.user import LOCAL_USER
 from velvetdub.errors import StageFailedError, VelvetDubError
+from velvetdub.features.scene_filtering.factory import build_scene_scanner
 from velvetdub.pipeline.context import ProcessOptions
 from velvetdub.pipeline.observer import PipelineObserver
 from velvetdub.providers import registry
@@ -52,15 +54,18 @@ def doctor() -> None:
         report(binary, shutil.which(binary) is not None)
 
     providers = ProviderSet(settings)
-    checks = {
-        "transcription": ("transcriber", settings.transcription_provider),
-        "translation": ("text_generator", settings.translation_provider),
-        "visual moderation": ("video_analyzer", settings.moderation_provider),
-        "text moderation": ("text_moderator", settings.text_moderation_provider),
+    checks: dict[str, tuple[Callable[[], Any], str]] = {
+        "transcription": (lambda: providers.transcriber, settings.transcription_provider),
+        "translation": (lambda: providers.text_generator, settings.translation_provider),
+        "visual moderation": (
+            lambda: build_scene_scanner(providers, settings),
+            settings.moderation_provider,
+        ),
+        "text moderation": (lambda: providers.text_moderator, settings.text_moderation_provider),
     }
-    for label, (attr, name) in checks.items():
+    for label, (get, name) in checks.items():
         try:
-            provider = getattr(providers, attr)
+            provider = get()
             report(f"{label}: {name}", True, provider.identity)
         except VelvetDubError as exc:
             report(f"{label}: {name}", False, str(exc))
@@ -76,6 +81,7 @@ def providers() -> None:
         registry.transcribers,
         registry.text_generators,
         registry.video_analyzers,
+        registry.frame_judges,
         registry.text_moderators,
         registry.separators,
         registry.synthesizers,

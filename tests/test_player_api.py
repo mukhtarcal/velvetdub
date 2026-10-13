@@ -85,7 +85,7 @@ def test_playback_resolves_filters_for_the_profile(client: TestClient, processed
     assert kids["profile"] == {"id": "kids", "name": "Kids (G)"}
     assert {f["category"] for f in kids["filters"]} == {"swearing", "violence"}
     assert {f["action"] for f in kids["filters"]} == {"mute", "skip"}
-    assert kids["runtime_removed"] == 10.0  # the fake visual scan skips 10 s
+    assert kids["runtime_removed"] == 12.0  # the fake scan's 10 s, plus a second each side
     assert [t["id"] for t in kids["audio_tracks"]] == ["original"]
     assert {t["language"] for t in kids["subtitle_tracks"]} == {"en", "es"}
     assert kids["duration"] == 60.0

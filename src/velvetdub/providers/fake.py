@@ -3,14 +3,15 @@
 Select with e.g. TRANSCRIPTION_PROVIDER=fake.
 """
 
+import re
 from pathlib import Path
 
+from pydantic import BaseModel
+
 from velvetdub.config.settings import Settings
-from velvetdub.domain.filtering import FilterCategory, FilterEvent, Severity
 from velvetdub.domain.transcript import Segment, Transcript, Word
-from velvetdub.domain.translation import TranslatedSegment, Translation, TranslationTone
-from velvetdub.providers.base import Moderator, Transcriber, Translator
-from velvetdub.providers.registry import moderators, transcribers, translators
+from velvetdub.providers.base import TextGenerator, Transcriber, VideoAnalyzer
+from velvetdub.providers.registry import text_generators, transcribers, video_analyzers
 
 
 class FakeTranscriber(Transcriber):
@@ -35,45 +36,42 @@ class FakeTranscriber(Transcriber):
         return Transcript(language=language or "en", segments=segments)
 
 
-class FakeTranslator(Translator):
+class FakeTextGenerator(TextGenerator):
+    """Answers the translation prompt offline: every numbered line comes back as '[lang] text'.
+    It relies on the prompt's 'Target language: xx' line and '[id] text' lines."""
+
     name = "fake"
 
-    def translate(
-        self,
-        transcript: Transcript,
-        target_language: str,
-        tone: TranslationTone = TranslationTone.NATURAL,
-    ) -> Translation:
-        return Translation(
-            language=target_language,
-            tone=tone,
-            segments=[
-                TranslatedSegment(
-                    segment_id=s.id,
-                    text=f"[{target_language}] {s.text}",
-                    target_duration=s.duration,
-                )
-                for s in transcript.segments
-            ],
-        )
-
-
-class FakeModerator(Moderator):
-    name = "fake"
-
-    def scan_clip(self, clip_path: Path, *, offset: float) -> list[FilterEvent]:
-        return [
-            FilterEvent(
-                id=f"vis-{offset:.0f}",
-                category=FilterCategory.VIOLENCE,
-                severity=Severity.STRONG,
-                start=offset + 10.0,
-                end=offset + 20.0,
-                confidence=0.9,
-                source=self.identity,
-                note="fake detection",
-            )
+    def generate[T: BaseModel](self, system: str, prompt: str, schema: type[T]) -> T:
+        target = re.search(r"^Target language: (\S+)", prompt, re.MULTILINE)
+        language = target.group(1) if target else "xx"
+        lines = [
+            {"id": found.group(1), "text": f"[{language}] {found.group(2)}"}
+            for found in re.finditer(r"^\[(?!context\])([^\]]+)\] (.*)$", prompt, re.MULTILINE)
         ]
+        return schema.model_validate({"lines": lines})
+
+
+class FakeVideoAnalyzer(VideoAnalyzer):
+    """Answers the scene scan offline: one violent moment, 10 to 20 seconds into every clip."""
+
+    name = "fake"
+
+    def analyze_clip[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
+        return schema.model_validate(
+            {
+                "detections": [
+                    {
+                        "start": "00:10",
+                        "end": "00:20",
+                        "category": "violence",
+                        "severity": "strong",
+                        "confidence": 0.9,
+                        "description": "fake detection",
+                    }
+                ]
+            }
+        )
 
 
 @transcribers.register("fake")
@@ -81,11 +79,11 @@ def _transcriber(settings: Settings) -> Transcriber:
     return FakeTranscriber()
 
 
-@translators.register("fake")
-def _translator(settings: Settings) -> Translator:
-    return FakeTranslator()
+@text_generators.register("fake")
+def _text_generator(settings: Settings) -> TextGenerator:
+    return FakeTextGenerator()
 
 
-@moderators.register("fake")
-def _moderator(settings: Settings) -> Moderator:
-    return FakeModerator(settings.moderation_model)
+@video_analyzers.register("fake")
+def _video_analyzer(settings: Settings) -> VideoAnalyzer:
+    return FakeVideoAnalyzer(settings.moderation_model)

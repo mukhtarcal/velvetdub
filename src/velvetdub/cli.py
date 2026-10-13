@@ -54,8 +54,8 @@ def doctor() -> None:
     providers = ProviderSet(settings)
     checks = {
         "transcription": ("transcriber", settings.transcription_provider),
-        "translation": ("translator", settings.translation_provider),
-        "visual moderation": ("moderator", settings.moderation_provider),
+        "translation": ("text_generator", settings.translation_provider),
+        "visual moderation": ("video_analyzer", settings.moderation_provider),
         "text moderation": ("text_moderator", settings.text_moderation_provider),
     }
     for label, (attr, name) in checks.items():
@@ -74,8 +74,8 @@ def providers() -> None:
     """List the registered providers for each capability."""
     for reg in (
         registry.transcribers,
-        registry.translators,
-        registry.moderators,
+        registry.text_generators,
+        registry.video_analyzers,
         registry.text_moderators,
         registry.separators,
         registry.synthesizers,

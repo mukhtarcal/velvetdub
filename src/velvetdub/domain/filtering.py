@@ -112,6 +112,16 @@ class ResolvedFilter(BaseModel):
     action: FilterAction
 
 
+# Spoken-word categories are timed to the word and padded by the player; every other category
+# comes from the picture scan.
+WORD_CATEGORIES = frozenset({FilterCategory.SWEARING, FilterCategory.BLASPHEMY})
+# The picture scan reports whole seconds from 1 frame per second, so a scene can really begin up
+# to a second before the time it gives. Cutting a little early beats cutting late, so picture
+# moments are widened by this much on each side at playback (stored detections stay as found).
+PICTURE_LEAD_SECONDS = 1.0
+PICTURE_TAIL_SECONDS = 1.0
+
+
 class FilterPolicy:
     """Decides what happens to each detection for a given profile."""
 
@@ -130,8 +140,19 @@ class FilterPolicy:
         for event in timeline.sorted_events():
             action = self.action_for(event, profile)
             if action is not None:
-                resolved.append(ResolvedFilter(event=event, action=action))
-        return resolved
+                resolved.append(ResolvedFilter(event=self._padded(event), action=action))
+        return sorted(resolved, key=lambda r: (r.event.start, r.event.end))
+
+    @staticmethod
+    def _padded(event: FilterEvent) -> FilterEvent:
+        if event.category in WORD_CATEGORIES:
+            return event
+        return event.model_copy(
+            update={
+                "start": max(0.0, event.start - PICTURE_LEAD_SECONDS),
+                "end": event.end + PICTURE_TAIL_SECONDS,
+            }
+        )
 
     @staticmethod
     def runtime_removed(resolved: Iterable[ResolvedFilter]) -> float:

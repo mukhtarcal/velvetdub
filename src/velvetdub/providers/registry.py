@@ -9,13 +9,13 @@ from collections.abc import Callable
 from velvetdub.config.settings import Settings
 from velvetdub.errors import UnknownProviderError
 from velvetdub.providers.base import (
-    Moderator,
     Provider,
     SourceSeparator,
     SpeechSynthesizer,
+    TextGenerator,
     TextModerator,
     Transcriber,
-    Translator,
+    VideoAnalyzer,
 )
 
 
@@ -47,8 +47,8 @@ class ProviderRegistry[P: Provider]:
 
 
 transcribers: ProviderRegistry[Transcriber] = ProviderRegistry("transcription")
-translators: ProviderRegistry[Translator] = ProviderRegistry("translation")
-moderators: ProviderRegistry[Moderator] = ProviderRegistry("visual moderation")
+text_generators: ProviderRegistry[TextGenerator] = ProviderRegistry("translation")
+video_analyzers: ProviderRegistry[VideoAnalyzer] = ProviderRegistry("visual moderation")
 text_moderators: ProviderRegistry[TextModerator] = ProviderRegistry("text moderation")
 separators: ProviderRegistry[SourceSeparator] = ProviderRegistry("source separation")
 synthesizers: ProviderRegistry[SpeechSynthesizer] = ProviderRegistry("speech synthesis")

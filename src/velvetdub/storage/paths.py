@@ -47,6 +47,15 @@ class TitlePaths:
     def visual_events(self) -> Path:
         return self.root / "scan" / "visual.json"
 
+    def visual_part(self, key: str, index: int) -> Path:
+        """Saved result of one scanned clip, so a stopped scan resumes instead of restarting.
+        `key` ties it to the scan settings that produced it."""
+        return self.root / "scan" / "parts" / safe_name(key) / f"clip_{index:04d}.json"
+
+    @property
+    def visual_usage(self) -> Path:
+        return self.root / "scan" / "visual_usage.json"
+
     @property
     def filters(self) -> Path:
         return self.root / "filters.json"

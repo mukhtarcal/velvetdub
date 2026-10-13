@@ -2,16 +2,20 @@ import tempfile
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel
 
 from tests.conftest import FakeMediaTool
 from velvetdub.config.settings import Settings
 from velvetdub.container import Container, build_container
 from velvetdub.domain.filtering import FilterCategory, FilterTimeline
 from velvetdub.domain.manifest import StageStatus
-from velvetdub.errors import StageFailedError
+from velvetdub.domain.usage import TokenUsage
+from velvetdub.errors import QuotaExceededError, StageFailedError
 from velvetdub.media.tools import ScanClip
 from velvetdub.pipeline.context import ProcessOptions
 from velvetdub.pipeline.observer import NullObserver
+from velvetdub.pipeline.stages.visual_scan import ScanUsage
+from velvetdub.providers.fake import FakeVideoAnalyzer
 from velvetdub.storage.artifacts import read_model
 
 
@@ -98,7 +102,7 @@ def test_changing_the_model_invalidates_that_stage(container: Container, source_
     manifest = container.store.create("local", "Movie", source_file)
     container.process(manifest, ProcessOptions())
 
-    container.providers.__dict__.pop("moderator")  # drop the cached provider
+    container.providers.__dict__.pop("video_analyzer")  # drop the cached provider
     container.settings.moderation_model = "another-model"
     observer = RecordingObserver()
     container.process(manifest, ProcessOptions(), observer)
@@ -146,8 +150,8 @@ def test_visual_scan_places_each_clips_detections_on_the_film_timeline(
 
     timeline = read_model(container.store.paths(manifest).visual_events, FilterTimeline)
     assert [(e.id, e.start, e.end) for e in timeline.events] == [
-        ("vis-0", 10.0, 20.0),
-        ("vis-600", 610.0, 620.0),
+        ("vis-0-0", 10.0, 20.0),
+        ("vis-600-0", 610.0, 620.0),
     ]
 
 
@@ -156,3 +160,48 @@ def test_scan_clips_are_not_left_on_disk(container: Container, source_file: Path
     manifest = container.store.create("local", "Movie", source_file)
     container.process(manifest, ProcessOptions())
     assert set(Path(tempfile.gettempdir()).glob("vd-scan-*")) == before
+
+
+class FlakyAnalyzer(FakeVideoAnalyzer):
+    """Fails on its `fail_on`th call until `heal()` is called; counts calls that succeeded."""
+
+    def __init__(self, fail_on: int) -> None:
+        super().__init__()
+        self.fail_on = fail_on
+        self.calls = 0
+        self.succeeded = 0
+
+    def heal(self) -> None:
+        self.fail_on = -1
+
+    def analyze_clip[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
+        self.calls += 1
+        if self.calls == self.fail_on:
+            raise QuotaExceededError("limit used up", retry_after_seconds=9000)
+        self.succeeded += 1
+        self.last_usage = TokenUsage(input_tokens=100, output_tokens=5)
+        return super().analyze_clip(clip_path, instructions, schema)
+
+
+def test_stopped_scan_resumes_at_the_failed_clip_and_records_usage(
+    settings: Settings, source_file: Path
+) -> None:
+    analyzer = FlakyAnalyzer(fail_on=2)
+    container = build_container(settings, media=TwoClipMedia())
+    container.providers.video_analyzer = analyzer
+    manifest = container.store.create("local", "Long film", source_file)
+
+    with pytest.raises(StageFailedError):
+        container.process(manifest, ProcessOptions())
+    assert analyzer.succeeded == 1
+    assert "limit used up" in (manifest.stages["visual_scan"].error or "")
+
+    analyzer.heal()
+    container.process(manifest, ProcessOptions())
+    assert analyzer.succeeded == 2  # the first clip was not paid for again
+
+    paths = container.store.paths(manifest)
+    timeline = read_model(paths.visual_events, FilterTimeline)
+    assert [e.id for e in timeline.events] == ["vis-0-0", "vis-600-0"]
+    usage = read_model(paths.visual_usage, ScanUsage)
+    assert (usage.clips, usage.input_tokens, usage.output_tokens) == (2, 200, 10)

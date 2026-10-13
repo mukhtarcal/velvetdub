@@ -1,23 +1,17 @@
-"""Real providers with the network call replaced. Everything around the call is real."""
+"""Vendor connections with the network call replaced. Everything around the call is real."""
 
-from collections.abc import Sequence
+from collections.abc import Callable
 from pathlib import Path
 
+import httpx
 import pytest
+from google.genai import errors as genai_errors
+from google.genai import types
+from pydantic import BaseModel
 
-from velvetdub.domain.filtering import FilterCategory, Severity
-from velvetdub.domain.transcript import Segment, Transcript
-from velvetdub.domain.translation import TranslationTone
-from velvetdub.errors import ProviderError
-from velvetdub.providers.anthropic import AnthropicTranslator, batches
+from velvetdub.errors import ProviderError, QuotaExceededError
 from velvetdub.providers.assemblyai import AssemblyAITranscriber, RawTranscription
-from velvetdub.providers.gemini import (
-    ClipResult,
-    Detection,
-    GeminiModerator,
-    VisualCategory,
-    parse_clock,
-)
+from velvetdub.providers.gemini import GeminiVideoAnalyzer
 from velvetdub.providers.segmentation import RawWord
 
 # --- AssemblyAI ---------------------------------------------------------------------------
@@ -46,112 +40,112 @@ def test_transcriber_rejects_silence(tmp_path: Path) -> None:
         StubTranscriber(RawTranscription(words=[], language="en")).transcribe(tmp_path / "a.m4a")
 
 
-# --- Claude translation ------------------------------------------------------------------
+# --- Gemini connection --------------------------------------------------------------------
 
 
-def segs(n: int) -> list[Segment]:
-    return [Segment(id=f"s{i}", start=i, end=i + 1, text=f"line {i}") for i in range(n)]
+class Answer(BaseModel):
+    ok: bool
 
 
-class StubTranslator(AnthropicTranslator):
-    def __init__(self, skip: set[str] | None = None, always_skip: bool = False) -> None:
-        super().__init__(client=None, model="m")  # type: ignore[arg-type]
-        self.calls: list[list[str]] = []
-        self._skip = skip or set()
-        self._always_skip = always_skip
-
-    def _translate_batch(
-        self,
-        batch: Sequence[Segment],
-        context: Sequence[Segment],
-        source_language: str,
-        target_language: str,
-        tone: TranslationTone,
-    ) -> dict[str, str]:
-        self.calls.append([s.id for s in batch])
-        out = {s.id: f"[{target_language}] {s.text}" for s in batch if s.id not in self._skip}
-        if not self._always_skip:
-            self._skip = set()  # first attempt skips, the retry succeeds
-        return out
-
-
-def test_translation_keeps_ids_and_durations() -> None:
-    transcript = Transcript(language="en", segments=segs(3))
-    result = StubTranslator().translate(transcript, "es")
-    assert [t.segment_id for t in result.segments] == ["s0", "s1", "s2"]
-    assert result.segments[1].text == "[es] line 1"
-    assert all(t.target_duration == 1.0 for t in result.segments)
-
-
-def test_skipped_lines_are_retried_once() -> None:
-    translator = StubTranslator(skip={"s1"})
-    result = translator.translate(Transcript(language="en", segments=segs(3)), "es")
-    assert len(result.segments) == 3
-    assert translator.calls == [["s0", "s1", "s2"], ["s1"]]
-
-
-def test_persistent_skips_fail_loudly() -> None:
-    translator = StubTranslator(skip={"s1"}, always_skip=True)
-    with pytest.raises(ProviderError, match="s1"):
-        translator.translate(Transcript(language="en", segments=segs(3)), "es")
-
-
-def test_batching_gives_context_from_previous_lines() -> None:
-    pairs = list(batches(segs(5), 2))
-    assert [[s.id for s in b] for b, _ in pairs] == [["s0", "s1"], ["s2", "s3"], ["s4"]]
-    assert pairs[0][1] == []
-    assert [s.id for s in pairs[1][1]] == ["s0", "s1"]
-
-
-# --- Gemini ------------------------------------------------------------------------------
-
-
-class StubModerator(GeminiModerator):
-    def __init__(self, result: ClipResult) -> None:
+class StubAnalyzer(GeminiVideoAnalyzer):
+    def __init__(self, calls: Callable[[], Answer]) -> None:
         super().__init__(client=None, model="gemini-x")  # type: ignore[arg-type]
-        self._result = result
+        self._calls = calls
 
-    def _analyse_clip(self, clip_path: Path) -> ClipResult:
-        return self._result
+    def _analyze_once[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
+        return schema.model_validate(self._calls().model_dump())
 
 
-def detection(
-    start: str, end: str, category: VisualCategory = VisualCategory.VIOLENCE
-) -> Detection:
-    return Detection(
-        start=start, end=end, category=category, severity="strong", confidence=0.9, description="d"
+def test_dropped_connections_are_retried(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("velvetdub.providers.gemini.CONNECTION_RETRY_SECONDS", 0)
+    calls = 0
+
+    def flaky() -> Answer:
+        nonlocal calls
+        calls += 1
+        if calls < 3:
+            raise httpx.RemoteProtocolError("Server disconnected without sending a response.")
+        return Answer(ok=True)
+
+    assert StubAnalyzer(flaky).analyze_clip(tmp_path / "c.mp4", "look", Answer).ok
+    assert calls == 3
+
+
+def test_used_up_quota_stops_at_once_and_says_when_to_retry(tmp_path: Path) -> None:
+    calls = 0
+
+    def limited() -> Answer:
+        nonlocal calls
+        calls += 1
+        raise genai_errors.ClientError(
+            429,
+            {"error": {"status": "RESOURCE_EXHAUSTED", "details": [{"retryDelay": "9294s"}]}},
+        )
+
+    with pytest.raises(QuotaExceededError) as info:
+        StubAnalyzer(limited).analyze_clip(tmp_path / "c.mp4", "look", Answer)
+    assert calls == 1
+    assert info.value.retry_after_seconds == 9294
+    assert "2 h 34 min" in str(info.value)
+
+
+# --- Gemini streamed answer ----------------------------------------------------------------
+
+
+class FakeChunk:
+    def __init__(self, text: str | None = None, usage: object = None, block: str | None = None):
+        self.text = text
+        self.usage_metadata = usage
+        self.prompt_feedback = (
+            types.GenerateContentResponsePromptFeedback(block_reason=block) if block else None
+        )
+
+
+class FakeClient:
+    """Just enough of the Gemini client: upload, status, streamed answer, delete."""
+
+    def __init__(self, chunks: list[FakeChunk]) -> None:
+        self.deleted: list[str] = []
+        self.files = self
+        self.models = self
+        self._chunks = chunks
+
+    def upload(self, file: Path) -> types.File:
+        return types.File(name="files/x")
+
+    def get(self, name: str) -> types.File:
+        return types.File(name=name, state=types.FileState.ACTIVE)
+
+    def delete(self, name: str) -> None:
+        self.deleted.append(name)
+
+    def generate_content_stream(self, **kwargs: object) -> list[FakeChunk]:
+        return self._chunks
+
+
+def analyzer_for(chunks: list[FakeChunk]) -> tuple[GeminiVideoAnalyzer, FakeClient]:
+    client = FakeClient(chunks)
+    return GeminiVideoAnalyzer(client=client, model="gemini-x"), client  # type: ignore[arg-type]
+
+
+def test_streamed_pieces_are_joined_parsed_and_counted(tmp_path: Path) -> None:
+    usage = types.GenerateContentResponseUsageMetadata(
+        prompt_token_count=1000, candidates_token_count=20, thoughts_token_count=5
     )
+    analyzer, client = analyzer_for([FakeChunk('{"o'), FakeChunk('k": true}', usage=usage)])
+    assert analyzer.analyze_clip(tmp_path / "c.mp4", "look", Answer).ok
+    assert (analyzer.last_usage.input_tokens, analyzer.last_usage.output_tokens) == (1000, 25)
+    assert client.deleted == ["files/x"]  # the clip is not left on the service
 
 
-def test_detections_are_shifted_onto_the_film_timeline(tmp_path: Path) -> None:
-    moderator = StubModerator(ClipResult(detections=[detection("01:05", "01:20")]))
-    (event,) = moderator.scan_clip(tmp_path / "c.mp4", offset=600)
-    assert (event.start, event.end) == (665.0, 680.0)
-    assert event.category is FilterCategory.VIOLENCE
-    assert event.severity is Severity.STRONG
-    assert event.source == "gemini:gemini-x"
+def test_unreadable_answer_is_a_clear_error(tmp_path: Path) -> None:
+    analyzer, client = analyzer_for([FakeChunk("not json")])
+    with pytest.raises(ProviderError, match="no usable result"):
+        analyzer.analyze_clip(tmp_path / "c.mp4", "look", Answer)
+    assert client.deleted == ["files/x"]
 
 
-def test_backwards_range_is_repaired_not_dropped(tmp_path: Path) -> None:
-    moderator = StubModerator(ClipResult(detections=[detection("00:30", "00:10")]))
-    (event,) = moderator.scan_clip(tmp_path / "c.mp4", offset=0)
-    assert event.start == event.end == 30.0
-
-
-def test_confidence_is_clamped(tmp_path: Path) -> None:
-    found = detection("00:01", "00:02")
-    found.confidence = 7
-    (event,) = StubModerator(ClipResult(detections=[found])).scan_clip(tmp_path / "c.mp4", offset=0)
-    assert event.confidence == 1.0
-
-
-@pytest.mark.parametrize(
-    ("text", "seconds"), [("00:07", 7), ("1:02:03", 3723), ("90", 90), (" 02:30 ", 150)]
-)
-def test_parse_clock(text: str, seconds: float) -> None:
-    assert parse_clock(text) == seconds
-
-
-def test_parse_clock_rejects_garbage() -> None:
-    with pytest.raises(ProviderError):
-        parse_clock("soon")
+def test_blocked_clip_is_reported(tmp_path: Path) -> None:
+    analyzer, _ = analyzer_for([FakeChunk(block="PROHIBITED_CONTENT")])
+    with pytest.raises(ProviderError, match="blocked"):
+        analyzer.analyze_clip(tmp_path / "c.mp4", "look", Answer)

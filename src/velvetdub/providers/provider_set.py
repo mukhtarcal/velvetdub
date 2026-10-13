@@ -15,12 +15,12 @@ from velvetdub.config.settings import Settings
 from velvetdub.errors import ConfigError
 from velvetdub.providers import registry
 from velvetdub.providers.base import (
-    Moderator,
     SourceSeparator,
     SpeechSynthesizer,
+    TextGenerator,
     TextModerator,
     Transcriber,
-    Translator,
+    VideoAnalyzer,
 )
 
 
@@ -33,12 +33,14 @@ class ProviderSet:
         return registry.transcribers.create(self._settings.transcription_provider, self._settings)
 
     @cached_property
-    def translator(self) -> Translator:
-        return registry.translators.create(self._settings.translation_provider, self._settings)
+    def text_generator(self) -> TextGenerator:
+        """The model that translates (chosen by TRANSLATION_PROVIDER / TRANSLATION_MODEL)."""
+        return registry.text_generators.create(self._settings.translation_provider, self._settings)
 
     @cached_property
-    def moderator(self) -> Moderator:
-        return registry.moderators.create(self._settings.moderation_provider, self._settings)
+    def video_analyzer(self) -> VideoAnalyzer:
+        """The model that watches clips (chosen by MODERATION_PROVIDER / MODERATION_MODEL)."""
+        return registry.video_analyzers.create(self._settings.moderation_provider, self._settings)
 
     @cached_property
     def text_moderator(self) -> TextModerator:

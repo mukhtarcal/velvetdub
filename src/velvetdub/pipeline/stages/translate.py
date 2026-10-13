@@ -2,6 +2,7 @@ from pathlib import Path
 
 from velvetdub.domain.transcript import Transcript
 from velvetdub.domain.translation import TranslatedSegment, Translation
+from velvetdub.features.translation.translator import Translator
 from velvetdub.pipeline.context import PipelineContext
 from velvetdub.pipeline.stage import Stage
 from velvetdub.storage.artifacts import read_model, write_model
@@ -24,10 +25,11 @@ class TranslateStage(Stage):
 
     def config_key(self, ctx: PipelineContext) -> str:
         languages = ",".join(ctx.options.target_languages)
-        return f"{ctx.providers.translator.identity}|{languages}"
+        return f"{ctx.providers.text_generator.identity}|{languages}"
 
     def run(self, ctx: PipelineContext) -> None:
         transcript = read_model(ctx.paths.transcript, Transcript)
+        translator = Translator(ctx.providers.text_generator)
         for language in ctx.options.target_languages:
             if language == transcript.language:
                 translation = Translation(
@@ -38,5 +40,5 @@ class TranslateStage(Stage):
                     ],
                 )
             else:
-                translation = ctx.providers.translator.translate(transcript, language)
+                translation = translator.translate(transcript, language)
             write_model(ctx.paths.translation(language), translation)

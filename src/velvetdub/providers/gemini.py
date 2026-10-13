@@ -1,115 +1,108 @@
-"""Gemini visual moderation: sends one short clip at a time and gets back timed detections."""
+"""Gemini connection: uploads a clip, asks a question about it, returns the structured answer.
+
+Only vendor mechanics live here (upload, wait, retry, quota, token counts). What to ask and what
+to do with the answer belongs to `velvetdub.features`.
+"""
 
 import time
-from enum import StrEnum
 from pathlib import Path
-from typing import Literal
 
+import httpx
 from google import genai
+from google.genai import errors as genai_errors
 from google.genai import types
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from velvetdub.config.settings import Settings
-from velvetdub.domain.filtering import FilterCategory, FilterEvent, Severity
-from velvetdub.errors import ProviderError
-from velvetdub.providers.base import Moderator
+from velvetdub.domain.usage import TokenUsage
+from velvetdub.errors import ProviderError, QuotaExceededError
+from velvetdub.providers.base import VideoAnalyzer
 from velvetdub.providers.keys import require_key
-from velvetdub.providers.registry import moderators
+from velvetdub.providers.registry import video_analyzers
 
 UPLOAD_TIMEOUT_SECONDS = 600
 POLL_SECONDS = 2.0
-
-PROMPT = """You are reviewing a clip from a film or TV episode so that families can skip parts
-they would rather not watch. List every moment that contains any of these:
-
-- nudity: partial or full nudity
-- sexual_content: kissing that turns sexual, sex scenes, strong sexual innuendo shown on screen
-- violence: fights, weapons used on people, blood, injury, gore
-- drugs_and_drinking: drug use, smoking, drinking alcohol
-- scary_scenes: jump scares, frightening or disturbing imagery
-
-For each moment give its start and end as MM:SS from the START OF THIS CLIP (not the film), a
-severity (mild, moderate or strong), a confidence from 0 to 1, and a short neutral description.
-Cover the whole moment, from when it begins to when it clearly ends.
-
-Be conservative: a missed moment is worse than an extra one, so include anything doubtful with a
-lower confidence. Judge only what you can see. Do not report swearing; spoken words are handled
-elsewhere. If the clip has none of these, return an empty list."""
+CONNECTION_ATTEMPTS = 4
+CONNECTION_RETRY_SECONDS = 5.0
+QUOTA_STATUS = 429
+# The SDK's own retries cover temporary server trouble only. A 429 here is usually the daily limit,
+# which no short wait fixes, so it must surface at once instead of burning more requests.
+RETRY_STATUS_CODES = [408, 500, 502, 503, 504]
 
 
-class VisualCategory(StrEnum):
-    NUDITY = "nudity"
-    SEXUAL_CONTENT = "sexual_content"
-    VIOLENCE = "violence"
-    DRUGS_AND_DRINKING = "drugs_and_drinking"
-    SCARY_SCENES = "scary_scenes"
+def retry_delay_seconds(details: object) -> int | None:
+    """The service's 'retry in N seconds' hint from a quota error, if it gave one."""
+    if not isinstance(details, dict):
+        return None
+    error = details.get("error")
+    for item in error.get("details", []) if isinstance(error, dict) else []:
+        delay = item.get("retryDelay") if isinstance(item, dict) else None
+        if isinstance(delay, str) and delay.endswith("s"):
+            try:
+                return int(float(delay[:-1]))
+            except ValueError:
+                return None
+    return None
 
 
-class Detection(BaseModel):
-    start: str
-    end: str
-    category: VisualCategory
-    severity: Literal["mild", "moderate", "strong"]
-    confidence: float
-    description: str
+def quota_error(error: genai_errors.APIError) -> QuotaExceededError:
+    seconds = retry_delay_seconds(error.details)
+    wait = ""
+    if seconds is not None:
+        hours, minutes = divmod(max(seconds, 60) // 60, 60)
+        wait = (
+            f" Try again in about {hours} h {minutes} min."
+            if hours
+            else (f" Try again in about {minutes} min.")
+        )
+    return QuotaExceededError(
+        "Gemini's usage limit for this key is used up, so the scan stopped. Finished clips are "
+        f"saved and the next run carries on from there.{wait} Turning on billing for the key's "
+        "Google project raises the limit.",
+        seconds,
+    )
 
 
-class ClipResult(BaseModel):
-    detections: list[Detection]
-
-
-SEVERITY = {"mild": Severity.MILD, "moderate": Severity.MODERATE, "strong": Severity.STRONG}
-
-
-def parse_clock(value: str) -> float:
-    """'MM:SS', 'H:MM:SS' or plain seconds -> seconds."""
-    try:
-        seconds = 0.0
-        for part in value.strip().split(":"):
-            seconds = seconds * 60 + float(part)
-        return seconds
-    except ValueError:
-        raise ProviderError(f"Could not read timestamp '{value}' from the moderator.") from None
-
-
-class GeminiModerator(Moderator):
+class GeminiVideoAnalyzer(VideoAnalyzer):
     name = "gemini"
 
     def __init__(self, client: genai.Client, model: str) -> None:
         super().__init__(model)
         self._client = client
 
-    def scan_clip(self, clip_path: Path, *, offset: float) -> list[FilterEvent]:
-        result = self._analyse_clip(clip_path)
-        events: list[FilterEvent] = []
-        for index, found in enumerate(result.detections):
-            start = offset + parse_clock(found.start)
-            end = offset + parse_clock(found.end)
-            events.append(
-                FilterEvent(
-                    id=f"vis-{offset:.0f}-{index}",
-                    category=FilterCategory(found.category.value),
-                    severity=SEVERITY[found.severity],
-                    start=start,
-                    end=max(start, end),
-                    confidence=min(max(found.confidence, 0.0), 1.0),
-                    source=self.identity,
-                    note=found.description,
-                )
-            )
-        return events
+    def analyze_clip[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
+        """The SDK retries bad HTTP statuses but not dropped connections, which long uploads and
+        slow analyses hit now and then. One dropped connection must not cost the whole film."""
+        self.last_usage = TokenUsage()
+        for attempt in range(1, CONNECTION_ATTEMPTS + 1):
+            try:
+                return self._analyze_once(clip_path, instructions, schema)
+            except httpx.TransportError:
+                if attempt == CONNECTION_ATTEMPTS:
+                    raise
+                time.sleep(CONNECTION_RETRY_SECONDS * attempt)
+            except genai_errors.APIError as error:
+                if error.code == QUOTA_STATUS:
+                    raise quota_error(error) from error
+                raise
+        raise AssertionError("unreachable")
 
-    def _analyse_clip(self, clip_path: Path) -> ClipResult:
+    def _analyze_once[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
         """The only method that talks to the network (tests replace it)."""
         uploaded = self._client.files.upload(file=clip_path)
         try:
             ready = self._wait_until_ready(uploaded.name or "")
-            response = self._client.models.generate_content(
+            # Streamed, so data keeps arriving while the model works. A single long silent
+            # request gets dropped ("Server disconnected") after about a minute and a half.
+            answer: list[str] = []
+            usage: types.GenerateContentResponseUsageMetadata | None = None
+            block_reason: object = None
+            for chunk in self._client.models.generate_content_stream(
                 model=self.model or "",
-                contents=[ready, PROMPT],
+                contents=[ready, instructions],
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=ClipResult,
+                    response_schema=schema,
                     temperature=0.1,
                     # This is analysis of explicit material, not generation of it, so the
                     # service's own content blocking would only hide the very thing we look for.
@@ -125,18 +118,30 @@ class GeminiModerator(Moderator):
                         )
                     ],
                 ),
-            )
+            ):
+                if chunk.text:
+                    answer.append(chunk.text)
+                if chunk.usage_metadata is not None:
+                    usage = chunk.usage_metadata
+                if chunk.prompt_feedback is not None and chunk.prompt_feedback.block_reason:
+                    block_reason = chunk.prompt_feedback.block_reason
         finally:
             if uploaded.name:
                 self._client.files.delete(name=uploaded.name)  # don't leave films on the service
 
-        parsed = response.parsed
-        if isinstance(parsed, ClipResult):
-            return parsed
-        feedback = response.prompt_feedback
-        if feedback is not None and feedback.block_reason:
-            raise ProviderError(f"Gemini blocked this clip ({feedback.block_reason}).")
-        raise ProviderError("Gemini returned no usable result for this clip.")
+        if usage is not None:
+            self.last_usage = TokenUsage(
+                input_tokens=usage.prompt_token_count or 0,
+                output_tokens=(usage.candidates_token_count or 0)
+                + (usage.thoughts_token_count or 0),
+            )
+
+        if block_reason:
+            raise ProviderError(f"Gemini blocked this clip ({block_reason}).")
+        try:
+            return schema.model_validate_json("".join(answer))
+        except ValidationError:
+            raise ProviderError("Gemini returned no usable result for this clip.") from None
 
     def _wait_until_ready(self, name: str) -> types.File:
         deadline = time.monotonic() + UPLOAD_TIMEOUT_SECONDS
@@ -150,11 +155,13 @@ class GeminiModerator(Moderator):
         raise ProviderError("Timed out waiting for Gemini to process the clip.")
 
 
-@moderators.register("gemini")
-def _create(settings: Settings) -> Moderator:
+@video_analyzers.register("gemini")
+def _create(settings: Settings) -> VideoAnalyzer:
     key = require_key(settings.gemini_api_key, "GEMINI_API_KEY")
     client = genai.Client(
         api_key=key,
-        http_options=types.HttpOptions(retry_options=types.HttpRetryOptions(attempts=4)),
+        http_options=types.HttpOptions(
+            retry_options=types.HttpRetryOptions(attempts=4, http_status_codes=RETRY_STATUS_CODES)
+        ),
     )
-    return GeminiModerator(client, settings.moderation_model)
+    return GeminiVideoAnalyzer(client, settings.moderation_model)

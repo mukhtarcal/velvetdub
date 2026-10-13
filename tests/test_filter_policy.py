@@ -71,7 +71,8 @@ def test_runtime_removed_counts_overlaps_once() -> None:
     timeline = FilterTimeline(
         events=[event(start=0, end=10), event(start=5, end=15), event(start=20, end=25)]
     )
-    assert policy.runtime_removed(policy.resolve(timeline, p)) == 20.0
+    # Padded by a second each side: 0-11 and 4-16 merge (clamped at 0), plus 19-26
+    assert policy.runtime_removed(policy.resolve(timeline, p)) == 23.0
 
 
 def test_muted_words_do_not_count_as_removed_runtime() -> None:
@@ -94,3 +95,24 @@ def test_every_preset_builds_a_profile(preset: str) -> None:
 def test_unknown_preset_lists_the_options() -> None:
     with pytest.raises(ValueError, match="kids"):
         profile_from_preset("nope", profile_id="x", owner_id="u", name="n")
+
+
+def test_picture_moments_are_widened_by_a_second_each_side_at_playback() -> None:
+    p = profile(nudity=CategoryRule(action=FilterAction.SKIP))
+    timeline = FilterTimeline(events=[event(FilterCategory.NUDITY, Severity.STRONG, 78, 102)])
+    (resolved,) = policy.resolve(timeline, p)
+    assert (resolved.event.start, resolved.event.end) == (77.0, 103.0)
+    assert timeline.events[0].start == 78  # the stored detection is unchanged
+
+
+def test_padding_never_goes_before_the_start_of_the_film() -> None:
+    p = profile(violence=CategoryRule(action=FilterAction.SKIP))
+    (resolved,) = policy.resolve(FilterTimeline(events=[event(start=0.4, end=5)]), p)
+    assert resolved.event.start == 0.0
+
+
+def test_muted_words_are_not_padded_by_the_policy() -> None:
+    p = profile(swearing=CategoryRule(action=FilterAction.MUTE))
+    timeline = FilterTimeline(events=[event(FilterCategory.SWEARING, Severity.STRONG, 30, 30.4)])
+    (resolved,) = policy.resolve(timeline, p)
+    assert (resolved.event.start, resolved.event.end) == (30.0, 30.4)

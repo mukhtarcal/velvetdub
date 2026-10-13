@@ -37,5 +37,14 @@ class ProviderError(VelvetDubError):
     """An external service failed, refused, or returned something unusable."""
 
 
+class QuotaExceededError(ProviderError):
+    """The service's usage limit is used up. Saved progress is kept, so trying again later
+    carries on where this stopped."""
+
+    def __init__(self, message: str, retry_after_seconds: int | None = None) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class InvalidNameError(VelvetDubError):
     """A language code, track id or similar name that is not safe to use in a file name."""

@@ -8,10 +8,12 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import ClassVar
 
+from pydantic import BaseModel
+
 from velvetdub.domain.dubbing import SeparatedStems, SynthesisRequest, Voice
 from velvetdub.domain.filtering import FilterEvent
 from velvetdub.domain.transcript import Transcript
-from velvetdub.domain.translation import Translation, TranslationTone
+from velvetdub.domain.usage import TokenUsage
 
 
 class Provider(ABC):
@@ -34,24 +36,23 @@ class Transcriber(Provider):
         """Word-level timestamps and speaker labels. `language=None` means auto-detect."""
 
 
-class Translator(Provider):
-    @abstractmethod
-    def translate(
-        self,
-        transcript: Transcript,
-        target_language: str,
-        tone: TranslationTone = TranslationTone.NATURAL,
-    ) -> Translation:
-        """Translate every segment, keeping segment ids and filling `target_duration`."""
-
-
-class Moderator(Provider):
-    """Visual moderation. The pipeline cuts clips; the provider scans one at a time."""
+class TextGenerator(Provider):
+    """A language model that answers a text prompt in a fixed structure. What to ask, and what
+    to do with the answer, belongs to the feature using it (see `velvetdub.features`)."""
 
     @abstractmethod
-    def scan_clip(self, clip_path: Path, *, offset: float) -> list[FilterEvent]:
-        """Detections inside one clip, with times already shifted by `offset` seconds so they
-        sit on the full film's timeline."""
+    def generate[T: BaseModel](self, system: str, prompt: str, schema: type[T]) -> T:
+        """Answer `prompt` under the `system` instructions, as an instance of `schema`."""
+
+
+class VideoAnalyzer(Provider):
+    """A model that watches a short video clip and answers in a fixed structure."""
+
+    last_usage = TokenUsage()  # tokens the latest analysis used, when the service reports them
+
+    @abstractmethod
+    def analyze_clip[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
+        """Watch the clip, follow `instructions`, and answer as an instance of `schema`."""
 
 
 class TextModerator(Provider):

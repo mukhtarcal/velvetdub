@@ -40,12 +40,21 @@ describe('FilterEngine', () => {
     expect(engine.evaluate(12).skip?.items.map((i) => i.id)).toEqual(['a', 'b', 'c'])
   })
 
-  it('mutes a word with a little padding either side', () => {
+  it('starts a word mute early and ends it shortly after', () => {
     const engine = new FilterEngine([item({ id: 'w', action: 'mute', start: 5, end: 5.4 })])
-    expect(engine.evaluate(4.8).muted).toBe(false)
-    expect(engine.evaluate(4.95).muted).toBe(true)
-    expect(engine.evaluate(5.45).muted).toBe(true)
+    expect(engine.evaluate(4.7).muted).toBe(false)
+    expect(engine.evaluate(4.8).muted).toBe(true) // a quarter second before the stored start
+    expect(engine.evaluate(5.5).muted).toBe(true)
     expect(engine.evaluate(5.6).muted).toBe(false)
+  })
+
+  it('lets the lead and tail be changed', () => {
+    const engine = new FilterEngine([item({ id: 'w', action: 'mute', start: 5, end: 5.4 })], {
+      muteLead: 0.5,
+      muteTail: 0,
+    })
+    expect(engine.evaluate(4.6).muted).toBe(true)
+    expect(engine.evaluate(5.4).muted).toBe(false)
   })
 
   it('treats replace like mute for audio, and reports blurs while active', () => {

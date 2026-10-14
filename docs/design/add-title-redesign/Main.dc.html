@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Add a title</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Limelight&amp;family=Archivo:wdth,wght@62..125,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F0B0B}
+a{color:#F3ECE4}a:hover{color:#DCCFC4}
+button{font-family:inherit}
+button:focus-visible,input:focus-visible,label:focus-within{outline:2px solid #D9A441;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0F0B0B; color: #F3ECE4; font-family: 'Archivo', sans-serif; font-size: 16px; line-height: 24px;">
+
+  <header style="background: linear-gradient(90deg, #4A0C12 0%, #6A121A 35%, #5E0F15 65%, #3A0A0F 100%); border-bottom: 4px double #C99A3E;">
+    <div style="max-width: 1184px; margin: 0 auto; box-sizing: border-box; padding: 0 32px; min-height: 76px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 32px;">
+      <a href="#" style="font-family: 'Limelight', serif; font-size: 30px; line-height: 40px; color: #F3ECE4; text-decoration: none; padding: 16px 0;">Velvet Dub</a>
+      <nav aria-label="Main" style="display: flex; gap: 4px;">
+        <a href="#" aria-current="page" style="display: flex; align-items: center; min-height: 44px; padding: 0 18px; color: #F3ECE4; text-decoration: none; background: #2E070B;">Add a title</a>
+        <a href="Library.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 18px; color: #F0D9D2; text-decoration: none;">Library</a>
+      </nav>
+    </div>
+  </header>
+
+  <main style="box-sizing: border-box; width: 100%; max-width: 1184px; margin: 0 auto; padding: 56px 32px 80px;">
+    <div style="display: flex; flex-direction: column; gap: 40px;">
+
+      <header style="display: flex; flex-direction: column; gap: 8px; padding-bottom: 32px; border-bottom: 1px solid #3A2A2A;">
+        <div style="font-weight: 700; font-stretch: 75%; text-transform: uppercase; letter-spacing: 0.18em; font-size: 14px; color: #D9A441;">Add a title · step 1 of 2</div>
+        <h1 style="margin: 0; font-family: 'Limelight', serif; font-weight: 400; font-size: 54px; line-height: 64px;">Add a title</h1>
+      </header>
+
+      <section aria-labelledby="film-h" style="display: flex; flex-direction: column; gap: 20px;">
+        <h2 id="film-h" style="margin: 0; font-family: 'Limelight', serif; font-weight: 400; font-size: 29px; line-height: 36px;">The film</h2>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 20px; padding: 24px; background: #140D0D; border: 1px dashed #4D3838;">
+          <div style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 2px;">
+            <sc-if value="{{hasFile}}" hint-placeholder-val="{{ true }}">
+              <div style="color: #F3ECE4;">Harbor_Lights_1947.mp4</div>
+              <div style="color: #B3A398; font-size: 14.5px; line-height: 22px; font-variant-numeric: tabular-nums;">2.4 GB · 1:48:12</div>
+            </sc-if>
+            <sc-if value="{{noFile}}" hint-placeholder-val="{{ false }}">
+              <div style="color: #DCCFC4;">Choose a movie or episode from your computer.</div>
+              <div style="color: #B3A398; font-size: 14.5px; line-height: 22px;">MP4, MOV, MKV, WebM or AVI.</div>
+            </sc-if>
+          </div>
+          <button type="button" onClick="{{toggleFile}}" style="min-height: 44px; padding: 0 20px; background: transparent; color: #F3ECE4; border: 1px solid #5A4444; border-radius: 2px; font-size: 16px; cursor: pointer;">{{fileButton}}</button>
+        </div>
+        <label style="display: flex; flex-direction: column; gap: 8px; color: #B3A398; font-size: 14.5px;">
+          Name
+          <input type="text" value="{{nameValue}}" style="height: 48px; box-sizing: border-box; padding: 0 14px; background: #1A1312; border: 1px solid #4D3838; border-radius: 2px; color: #F3ECE4; font-family: inherit; font-size: 16px;">
+        </label>
+      </section>
+
+      <section aria-labelledby="filters-h" style="display: flex; flex-direction: column; gap: 20px; padding: 28px 28px 32px; background: #140D0D; border-top: 4px solid #9B1B24;">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 24px;">
+          <h2 id="filters-h" style="margin: 0; font-family: 'Limelight', serif; font-weight: 400; font-size: 29px; line-height: 36px; color: #E5484F;">Filters</h2>
+          <span style="color: #B3A398; font-size: 14.5px;">Optional</span>
+        </div>
+        <p style="margin: 0; color: #DCCFC4; max-width: 640px;">Choose what to skip. We scan the picture for these and show you every cut before you watch. You can keep any of them in.</p>
+        <div role="group" aria-label="What to skip" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px;">
+          <sc-for list="{{filters}}" as="f" hint-placeholder-count="4">
+            <button type="button" aria-pressed="{{f.on}}" onClick="{{f.toggle}}" style="{{f.tileStyle}}">
+              <span style="display: flex; align-items: center; gap: 12px;">
+                <span aria-hidden="true" style="{{f.boxStyle}}">
+                  <sc-if value="{{f.on}}" hint-placeholder-val="{{ false }}">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#F3ECE4" stroke-width="2"><path d="M2.5 7.5l3 3 6-7"></path></svg>
+                  </sc-if>
+                </span>
+                <span style="font-size: 18px; line-height: 26px; color: #F3ECE4;">{{f.label}}</span>
+              </span>
+              <span style="color: #B3A398; font-size: 14.5px; line-height: 22px;">{{f.hint}}</span>
+              <span style="{{f.stateStyle}}">{{f.stateWord}}</span>
+            </button>
+          </sc-for>
+        </div>
+        <p style="margin: 0; color: #B3A398; font-size: 14.5px; line-height: 22px;">Swearing in the dialogue is found from the words themselves, so it needs no scan. Once the video is done processing you can remove whatever swearing you choose.</p>
+      </section>
+
+      <section aria-labelledby="subs-h" style="display: flex; flex-direction: column; gap: 20px; padding: 28px 28px 32px; border: 1px solid #3A2A2A;">
+        <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px 24px;">
+          <h2 id="subs-h" style="margin: 0; font-family: 'Limelight', serif; font-weight: 400; font-size: 29px; line-height: 36px;">Subtitles</h2>
+          <span style="color: #B3A398; font-size: 14.5px;">Optional</span>
+        </div>
+        <div role="radiogroup" aria-label="Subtitles" style="display: inline-flex; align-self: flex-start; border: 1px solid #4D3838; border-radius: 2px; background: #1A1312;">
+          <button type="button" role="radio" aria-checked="{{subsOff}}" onClick="{{subsNo}}" style="{{offStyle}}">No subtitles</button>
+          <button type="button" role="radio" aria-checked="{{subsOn}}" onClick="{{subsYes}}" style="{{onStyle}}">Add subtitles</button>
+        </div>
+        <sc-if value="{{subsOn}}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <div style="color: #B3A398; font-size: 14.5px;">Languages</div>
+            <div role="group" aria-label="Subtitle languages" style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <sc-for list="{{languages}}" as="l" hint-placeholder-count="14">
+                <button type="button" aria-pressed="{{l.on}}" onClick="{{l.toggle}}" style="{{l.chipStyle}}">{{l.label}}</button>
+              </sc-for>
+            </div>
+            <sc-if value="{{noLanguage}}" hint-placeholder-val="{{ false }}">
+              <div style="color: #DCCFC4; font-size: 14.5px;">Choose at least one language, or pick No subtitles.</div>
+            </sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{subsOff}}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; color: #B3A398; font-size: 14.5px; line-height: 22px;">You can add subtitles later from the title page.</p>
+        </sc-if>
+      </section>
+
+      <div style="display: flex; flex-direction: column; gap: 20px; padding-top: 32px; border-top: 1px solid #3A2A2A;">
+        <dl style="margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 6px 24px; font-size: 16px;">
+          <dt style="color: #B3A398;">Skip</dt>
+          <dd style="margin: 0; color: #F3ECE4;">{{skipSummary}}</dd>
+          <dt style="color: #B3A398;">Subtitles</dt>
+          <dd style="margin: 0; color: #F3ECE4;">{{subsSummary}}</dd>
+        </dl>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px;">
+          <button type="button" disabled="{{cannotSubmit}}" style="{{primaryStyle}}">Upload and continue</button>
+          <span style="color: #B3A398; font-size: 14.5px;">{{submitHint}}</span>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"startFilled":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":1560}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const filled = props.startFilled ?? true;
+    this.state = {
+      hasFile: filled,
+      filters: filled ? { nudity: true, sexual_content: true } : {},
+      subs: filled,
+      langs: filled ? { en: true, es: true } : {},
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const FILTERS = [
+      { id: 'nudity', label: 'Nudity', hint: 'Bare bodies, partial or full.' },
+      { id: 'sexual_content', label: 'Sex scenes', hint: 'Sex scenes and sexual moments on screen.' },
+      { id: 'scary_scenes', label: 'Scary scenes', hint: 'Jump scares and frightening images.' },
+      { id: 'violence', label: 'Violence', hint: 'Fights, weapons, blood and injury.' },
+    ];
+    const LANGS = [
+      ['en', 'English'], ['es', 'Spanish'], ['fr', 'French'], ['de', 'German'], ['it', 'Italian'],
+      ['pt', 'Portuguese'], ['ar', 'Arabic'], ['ur', 'Urdu'], ['hi', 'Hindi'], ['tr', 'Turkish'],
+      ['ru', 'Russian'], ['zh', 'Chinese'], ['ja', 'Japanese'], ['ko', 'Korean'],
+    ];
+
+    const filters = FILTERS.map((f) => {
+      const on = !!s.filters[f.id];
+      return {
+        ...f,
+        on,
+        stateWord: on ? 'Will be skipped' : 'Plays as is',
+        tileStyle: 'display: flex; flex-direction: column; gap: 8px; text-align: left; min-height: 44px; padding: 18px; cursor: pointer; border-radius: 2px; '
+          + (on ? 'background: #1A1312; border: 2px solid #9B1B24;' : 'background: transparent; border: 2px solid #3A2A2A;'),
+        boxStyle: 'display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; box-sizing: border-box; border-radius: 2px; '
+          + (on ? 'background: #9B1B24; border: 1px solid #9B1B24;' : 'background: #1A1312; border: 1px solid #4D3838;'),
+        stateStyle: 'font-size: 14.5px; line-height: 22px; ' + (on ? 'color: #F3ECE4;' : 'color: #93847B;'),
+        toggle: () => this.setState({ filters: { ...s.filters, [f.id]: !on } }),
+      };
+    });
+
+    const languages = LANGS.map(([code, label]) => {
+      const on = !!s.langs[code];
+      return {
+        code, label, on,
+        chipStyle: 'min-height: 44px; padding: 0 18px; font-size: 16px; border-radius: 2px; cursor: pointer; color: #F3ECE4; '
+          + (on ? 'background: #9B1B24; border: 1px solid #9B1B24;' : 'background: #1A1312; border: 1px solid #4D3838;'),
+        toggle: () => this.setState({ langs: { ...s.langs, [code]: !on } }),
+      };
+    });
+
+    const chosenFilters = filters.filter((f) => f.on).map((f) => f.label.toLowerCase());
+    const chosenLangs = languages.filter((l) => l.on).map((l) => l.label);
+    const list = (xs) => xs.length <= 1 ? xs.join('') : xs.slice(0, -1).join(', ') + ' and ' + xs[xs.length - 1];
+    const noLanguage = s.subs && chosenLangs.length === 0;
+    const cannotSubmit = !s.hasFile || noLanguage;
+
+    const seg = (on) => 'min-height: 44px; padding: 0 20px; font-size: 16px; border: 0; border-radius: 0; cursor: pointer; '
+      + (on ? 'background: #9B1B24; color: #F3ECE4;' : 'background: transparent; color: #DCCFC4;');
+
+    const skipText = chosenFilters.length ? list(chosenFilters) : 'Nothing. The film plays as is.';
+
+    return {
+      hasFile: s.hasFile,
+      noFile: !s.hasFile,
+      fileButton: s.hasFile ? 'Choose a different file' : 'Choose a file',
+      nameValue: s.hasFile ? 'Harbor Lights 1947' : '',
+      toggleFile: () => this.setState({ hasFile: !s.hasFile }),
+      filters,
+      subsOn: s.subs,
+      subsOff: !s.subs,
+      subsNo: () => this.setState({ subs: false }),
+      subsYes: () => this.setState({ subs: true }),
+      offStyle: seg(!s.subs),
+      onStyle: seg(s.subs),
+      languages,
+      noLanguage,
+      skipSummary: chosenFilters.length ? skipText.charAt(0).toUpperCase() + skipText.slice(1) : skipText,
+      subsSummary: s.subs && chosenLangs.length ? list(chosenLangs) : 'None',
+      cannotSubmit,
+      submitHint: !s.hasFile ? 'Choose a file first.' : (noLanguage ? 'Choose a subtitle language first.' : 'Next, we upload the film and start the scan.'),
+      primaryStyle: 'min-height: 48px; padding: 0 28px; font-size: 16px; border: 0; border-radius: 2px; color: #F3ECE4; '
+        + (cannotSubmit ? 'background: #5E0F15; color: #B3A398; cursor: not-allowed;' : 'background: #9B1B24; cursor: pointer;'),
+    };
+  }
+}
+</script>
+</body>
+</html>

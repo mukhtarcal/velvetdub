@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Processing</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Limelight&amp;family=Archivo:wdth,wght@62..125,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F0B0B}
+a{color:#F3ECE4}a:hover{color:#DCCFC4}
+a:focus-visible,button:focus-visible{outline:2px solid #D9A441;outline-offset:2px}
+@media (prefers-reduced-motion: reduce){.drape,.tie{transition:none !important}}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0F0B0B; color: #F3ECE4; font-family: 'Archivo', sans-serif; font-size: 16px; line-height: 24px;">
+
+  <header style="background: linear-gradient(90deg, #4A0C12 0%, #6A121A 35%, #5E0F15 65%, #3A0A0F 100%); border-bottom: 4px double #C99A3E;">
+    <div style="max-width: 1184px; margin: 0 auto; box-sizing: border-box; padding: 0 32px; min-height: 76px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 32px;">
+      <a href="Main.dc.html" style="font-family: 'Limelight', serif; font-size: 30px; line-height: 40px; color: #F3ECE4; text-decoration: none; padding: 16px 0;">Velvet Dub</a>
+      <nav aria-label="Main" style="display: flex; gap: 4px;">
+        <a href="Main.dc.html" aria-current="page" style="display: flex; align-items: center; min-height: 44px; padding: 0 18px; color: #F3ECE4; text-decoration: none; background: #2E070B;">Add a title</a>
+        <a href="Library.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 18px; color: #F0D9D2; text-decoration: none;">Library</a>
+      </nav>
+    </div>
+  </header>
+
+  <main style="box-sizing: border-box; width: 100%; max-width: 1184px; margin: 0 auto; padding: 56px 32px 80px; display: flex; flex-direction: column; gap: 36px;">
+
+    <div style="display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-weight: 700; font-stretch: 75%; text-transform: uppercase; letter-spacing: 0.18em; font-size: 14px; color: #D9A441;">Harbor Lights 1947 · step 2 of 2</div>
+      <h1 aria-live="polite" style="margin: 0; font-family: 'Limelight', serif; font-weight: 400; font-size: 54px; line-height: 64px;">{{heading}}</h1>
+    </div>
+
+    <div aria-hidden="true" style="position: relative; width: 100%; aspect-ratio: 16 / 9; background: #070505; overflow: hidden;">
+      <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice" style="position: absolute; left: 9%; right: 9%; top: 15%; bottom: 5%; width: 82%; height: 80%;">
+        <rect width="320" height="180" fill="#1B2027"></rect>
+        <path d="M0 70 L250 98 L250 104 L0 120 Z" fill="#262C35"></path>
+        <circle cx="60" cy="38" r="9" fill="#B3A398"></circle>
+        <rect y="118" width="320" height="62" fill="#131920"></rect>
+        <path d="M180 124 C 210 108, 260 106, 320 112 L 320 126 L 180 126 Z" fill="#0D1014"></path>
+        <rect x="244" y="78" width="8" height="34" fill="#0D1014"></rect>
+        <rect x="245" y="82" width="6" height="6" fill="#F3D9A4"></rect>
+      </svg>
+
+      <div class="drape" style="{{leftStyle}}"></div>
+      <div class="drape" style="{{rightStyle}}"></div>
+
+      <div class="tie" style="{{tieLeft}}"></div>
+      <div class="tie" style="{{tassLeft}}"></div>
+      <div class="tie" style="{{tieRight}}"></div>
+      <div class="tie" style="{{tassRight}}"></div>
+
+      <div style="position: absolute; left: 0; right: 0; top: 0; z-index: 3;">
+        <div style="height: 26px; background: #2E070B; border-top: 1px solid #C99A3E; border-bottom: 3px solid #C99A3E;"></div>
+        <svg viewBox="0 0 1000 60" preserveAspectRatio="none" style="display: block; width: 100%; height: 56px;">
+          <path d="M0 0 Q125 64 250 0 Z M250 0 Q375 64 500 0 Z M500 0 Q625 64 750 0 Z M750 0 Q875 64 1000 0 Z" fill="#8A1820"></path>
+          <path d="M40 0 Q125 40 210 0 M290 0 Q375 40 460 0 M540 0 Q625 40 710 0 M790 0 Q875 40 960 0" fill="none" stroke="#5E0F15" stroke-width="3" vector-effect="non-scaling-stroke"></path>
+          <path d="M70 0 Q125 22 180 0 M320 0 Q375 22 430 0 M570 0 Q625 22 680 0 M820 0 Q875 22 930 0" fill="none" stroke="#B8383F" stroke-opacity="0.35" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+          <path d="M0 0 Q125 64 250 0 Q375 64 500 0 Q625 64 750 0 Q875 64 1000 0" fill="none" stroke="#C99A3E" stroke-width="2" vector-effect="non-scaling-stroke"></path>
+          <path d="M0 3 Q125 67 250 3 Q375 67 500 3 Q625 67 750 3 Q875 67 1000 3" fill="none" stroke="#B88A34" stroke-width="4" stroke-dasharray="1 3" vector-effect="non-scaling-stroke"></path>
+        </svg>
+      </div>
+    </div>
+
+    <sc-if value="{{working}}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div role="progressbar" aria-label="Processing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{percent}}" style="height: 6px; background: #221817;">
+          <div style="{{barStyle}}"></div>
+        </div>
+        <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0 32px;">
+          <sc-for list="{{stages}}" as="s" hint-placeholder-count="6">
+            <li style="display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #3A2A2A; font-size: 14.5px; line-height: 22px;">
+              <span style="{{s.labelStyle}}">{{s.label}}</span>
+              <span style="{{s.wordStyle}}">{{s.word}}</span>
+            </li>
+          </sc-for>
+        </ul>
+        <p style="margin: 0; color: #B3A398; font-size: 14.5px;">You can leave this page. The film keeps processing and shows up in your library when it is ready.</p>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{done}}" hint-placeholder-val="{{ false }}">
+      <div style="display: flex; flex-direction: column; gap: 20px;">
+        <p style="margin: 0; color: #DCCFC4; font-size: 18px; line-height: 29px;">We found 14 moments to skip, 3 min 12 s in all. Look them over before you watch. You can keep any of them in.</p>
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px;">
+          <a href="#" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 28px; background: #9B1B24; color: #F3ECE4; text-decoration: none; border-radius: 2px;">Review the cuts</a>
+          <a href="#" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 24px; border: 1px solid #5A4444; color: #F3ECE4; text-decoration: none; border-radius: 2px;">Watch now</a>
+        </div>
+      </div>
+    </sc-if>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"loop":{"editor":"boolean","default":true},"$preview":{"width":1440,"height":1240}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { percent: 0 };
+  }
+
+  componentDidMount() {
+    this.timer = setInterval(() => {
+      const p = this.state.percent;
+      if (p < 100) { this.setState({ percent: p + 1 }); return; }
+      this.held = (this.held || 0) + 1;
+      if ((this.props.loop ?? true) && this.held > 80) { this.held = 0; this.setState({ percent: 0 }); }
+    }, 110);
+  }
+
+  componentWillUnmount() { clearInterval(this.timer); }
+
+  renderVals() {
+    const percent = this.state.percent;
+    const open = percent >= 100;
+    const STAGES = ['Extracting the audio', 'Transcribing the dialogue', 'Scanning the picture', 'Translating', 'Building the filter timeline', 'Writing subtitles'];
+    const per = 100 / STAGES.length;
+
+    const ease = 'cubic-bezier(.65,0,.25,1)';
+    const move = 'width 2.8s ' + ease + ', clip-path 2.8s ' + ease;
+    const folds = '#2E070B 0%, #8A1820 6%, #9B1B24 11%, #5E0F15 18%, #8A1820 25%, #B8383F 29%, #9B1B24 33%, #5E0F15 43%, #8A1820 50%, #2E070B 57%, #9B1B24 64%, #8A1820 75%, #5E0F15 83%, #9B1B24 91%, #5E0F15 100%';
+    const shade = 'linear-gradient(180deg, rgba(7,5,5,.6) 0%, rgba(7,5,5,0) 20%, rgba(7,5,5,0) 78%, rgba(7,5,5,.65) 100%)';
+    const base = 'position: absolute; top: 0; bottom: 0; z-index: 1; transition: ' + move + ';';
+    const leftClip = open
+      ? 'polygon(0 0, 100% 0, 92% 22%, 72% 44%, 48% 60%, 64% 74%, 88% 90%, 100% 100%, 0 100%)'
+      : 'polygon(0 0, 100% 0, 100% 22%, 100% 44%, 100% 60%, 100% 74%, 100% 90%, 100% 100%, 0 100%)';
+    const rightClip = open
+      ? 'polygon(100% 0, 0 0, 8% 22%, 28% 44%, 52% 60%, 36% 74%, 12% 90%, 0 100%, 100% 100%)'
+      : 'polygon(100% 0, 0 0, 0 22%, 0 44%, 0 60%, 0 74%, 0 90%, 0 100%, 100% 100%)';
+    const width = open ? '17%' : '50.5%';
+
+    const tieFade = 'transition: opacity .6s ease ' + (open ? '2.4s' : '0s') + '; opacity: ' + (open ? 1 : 0) + ';';
+    const cord = 'position: absolute; z-index: 2; top: 60%; height: 3px; width: 9%; background: #C99A3E; ' + tieFade;
+    const tassel = 'position: absolute; z-index: 2; top: calc(60% + 2px); width: 7px; height: 22px; background: #B88A34; ' + tieFade;
+
+    const stages = STAGES.map((label, i) => {
+      const doneStage = percent >= (i + 1) * per;
+      const running = !doneStage && percent >= i * per;
+      return {
+        label,
+        word: doneStage ? 'Done' : running ? 'Working' : 'Waiting',
+        labelStyle: 'color: ' + (doneStage || running ? '#F3ECE4' : '#B3A398') + ';',
+        wordStyle: 'font-variant-numeric: tabular-nums; color: ' + (running ? '#E5484F' : doneStage ? '#DCCFC4' : '#93847B') + ';',
+      };
+    });
+
+    return {
+      percent,
+      working: !open,
+      done: open,
+      heading: open ? 'All set' : 'The projector is warming up',
+      barStyle: 'height: 6px; background: #E5484F; width: ' + percent + '%;',
+      leftStyle: base + ' left: 0; width: ' + width + '; clip-path: ' + leftClip + '; background: ' + shade + ', linear-gradient(90deg, ' + folds + ');',
+      rightStyle: base + ' right: 0; width: ' + width + '; clip-path: ' + rightClip + '; background: ' + shade + ', linear-gradient(270deg, ' + folds + ');',
+      tieLeft: cord + ' left: 0;',
+      tassLeft: tassel + ' left: 9%;',
+      tieRight: cord + ' right: 0;',
+      tassRight: tassel + ' right: 9%;',
+      stages,
+    };
+  }
+}
+</script>
+</body>
+</html>

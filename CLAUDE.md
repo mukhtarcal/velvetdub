@@ -2,7 +2,7 @@
 
 Personal, private tool: filter, subtitle and (Phase 2) dub films. Runs locally on one Mac.
 
-Read first: `docs/PLAN.md` (phases, architecture, extensibility rules) and `docs/BRAND.md` (all UI must follow it; the PDFs in `docs/` are the visual originals).
+Read first: `docs/PLAN.md` (phases, architecture, extensibility rules) and `docs/BRAND.md` (all UI must follow it; the PDFs in `docs/` are the visual originals). Approved screen designs live in `docs/design/<name>/`, each with a `README.md` spec; read the matching one before changing those screens.
 
 ## Commands
 - Python (from repo root; never use pip or global installs): `uv sync`, `uv run pytest`, `uv run ruff check . && uv run ruff format .`, `uv run mypy`

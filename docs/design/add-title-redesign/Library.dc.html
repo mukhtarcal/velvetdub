@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Library</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Limelight&amp;family=Archivo:wdth,wght@62..125,400..800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0F0B0B}
+a{color:#F3ECE4}a:hover{color:#DCCFC4}
+a:focus-visible,button:focus-visible{outline:2px solid #D9A441;outline-offset:2px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0F0B0B; color: #F3ECE4; font-family: 'Archivo', sans-serif; font-size: 16px; line-height: 24px;">
+
+  <header style="background: linear-gradient(90deg, #4A0C12 0%, #6A121A 35%, #5E0F15 65%, #3A0A0F 100%); border-bottom: 4px double #C99A3E;">
+    <div style="max-width: 1184px; margin: 0 auto; box-sizing: border-box; padding: 0 32px; min-height: 76px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 32px;">
+      <a href="Main.dc.html" style="font-family: 'Limelight', serif; font-size: 30px; line-height: 40px; color: #F3ECE4; text-decoration: none; padding: 16px 0;">Velvet Dub</a>
+      <nav aria-label="Main" style="display: flex; gap: 4px;">
+        <a href="Main.dc.html" style="display: flex; align-items: center; min-height: 44px; padding: 0 18px; color: #F0D9D2; text-decoration: none;">Add a title</a>
+        <a href="#" aria-current="page" style="display: flex; align-items: center; min-height: 44px; padding: 0 18px; color: #F3ECE4; text-decoration: none; background: #2E070B;">Library</a>
+      </nav>
+    </div>
+  </header>
+
+  <main style="box-sizing: border-box; width: 100%; max-width: 1184px; margin: 0 auto; padding: 56px 32px 80px; display: flex; flex-direction: column; gap: 40px;">
+
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 32px; padding-bottom: 32px; border-bottom: 1px solid #3A2A2A;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="font-weight: 700; font-stretch: 75%; text-transform: uppercase; letter-spacing: 0.18em; font-size: 14px; color: #D9A441;">Now showing in your living room</div>
+        <h1 style="margin: 0; font-family: 'Limelight', serif; font-weight: 400; font-size: 54px; line-height: 64px;">Library</h1>
+      </div>
+      <a href="Main.dc.html" style="display: inline-flex; align-items: center; min-height: 48px; padding: 0 28px; background: #9B1B24; color: #F3ECE4; text-decoration: none; border-radius: 2px;">Add a title</a>
+    </div>
+
+    <ul style="list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 40px 28px;">
+      <sc-for list="{{titles}}" as="t" hint-placeholder-count="4">
+        <li style="display: flex; flex-direction: column; gap: 14px;">
+          <div style="position: relative; border: 1px solid #D9A441; padding: 6px; background: #070505;">
+            <svg viewBox="0 0 320 180" width="100%" style="display: block;" aria-hidden="true">
+              <rect width="320" height="180" fill="#1B2027"></rect>
+              <circle cx="{{t.moon}}" cy="38" r="9" fill="#B3A398"></circle>
+              <rect y="118" width="320" height="62" fill="#131920"></rect>
+              <path d="M180 124 C 210 108, 260 106, 320 112 L 320 126 L 180 126 Z" fill="#0D1014"></path>
+              <rect x="244" y="78" width="8" height="34" fill="#0D1014"></rect>
+              <rect x="245" y="82" width="6" height="6" fill="#F3D9A4"></rect>
+            </svg>
+            <sc-if value="{{t.working}}" hint-placeholder-val="{{ false }}">
+              <div aria-hidden="true" style="position: absolute; inset: 6px; overflow: hidden;">
+                <div style="position: absolute; top: 0; bottom: 0; left: 0; width: 50.5%; background: linear-gradient(180deg, rgba(7,5,5,.6) 0%, rgba(7,5,5,0) 22%, rgba(7,5,5,0) 78%, rgba(7,5,5,.65) 100%), linear-gradient(90deg, #2E070B 0%, #8A1820 6%, #9B1B24 11%, #5E0F15 18%, #8A1820 25%, #B8383F 29%, #9B1B24 33%, #5E0F15 43%, #8A1820 50%, #2E070B 57%, #9B1B24 64%, #8A1820 75%, #5E0F15 83%, #9B1B24 91%, #5E0F15 100%);"></div>
+                <div style="position: absolute; top: 0; bottom: 0; right: 0; width: 50.5%; background: linear-gradient(180deg, rgba(7,5,5,.6) 0%, rgba(7,5,5,0) 22%, rgba(7,5,5,0) 78%, rgba(7,5,5,.65) 100%), linear-gradient(270deg, #2E070B 0%, #8A1820 6%, #9B1B24 11%, #5E0F15 18%, #8A1820 25%, #B8383F 29%, #9B1B24 33%, #5E0F15 43%, #8A1820 50%, #2E070B 57%, #9B1B24 64%, #8A1820 75%, #5E0F15 83%, #9B1B24 91%, #5E0F15 100%);"></div>
+                <div style="position: absolute; top: 0; left: 0; right: 0; height: 10px; background: #2E070B; border-bottom: 2px solid #C99A3E;"></div>
+              </div>
+            </sc-if>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px;">
+            <div style="font-size: 18px; line-height: 26px; color: #F3ECE4;">{{t.name}}</div>
+            <div style="color: #B3A398; font-size: 14.5px; line-height: 22px; font-variant-numeric: tabular-nums;">{{t.meta}}</div>
+            <div style="color: #B3A398; font-size: 14.5px; line-height: 22px;">{{t.choices}}</div>
+          </div>
+
+          <sc-if value="{{t.ready}}" hint-placeholder-val="{{ true }}">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;">
+              <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; padding: 0 18px; border: 1px solid #5A4444; border-radius: 2px; color: #F3ECE4; text-decoration: none;">Watch</a>
+              <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; color: #F3ECE4;">Review the cuts</a>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{t.working}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div role="progressbar" aria-label="Processing progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{t.percent}}" style="height: 6px; background: #221817;">
+                <div style="{{t.barStyle}}"></div>
+              </div>
+              <div style="display: flex; justify-content: space-between; gap: 12px; font-size: 14.5px; line-height: 22px;">
+                <span style="color: #DCCFC4;">{{t.step}}</span>
+                <span style="color: #B3A398; font-variant-numeric: tabular-nums;">{{t.percentLabel}}</span>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{t.failed}}" hint-placeholder-val="{{ false }}">
+            <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px;">
+              <span style="color: #DCCFC4; font-size: 14.5px;">Stopped while translating.</span>
+              <a href="#" style="display: inline-flex; align-items: center; min-height: 44px; color: #F3ECE4;">Try again</a>
+            </div>
+          </sc-if>
+        </li>
+      </sc-for>
+    </ul>
+
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1100}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const rows = [
+      { name: 'Harbor Lights 1947', meta: '1:48:12', choices: 'Skips nudity and sex scenes · Subtitles in English and Spanish', state: 'ready', moon: 60 },
+      { name: 'The Long Crossing', meta: '2:06:40', choices: 'Skips violence and scary scenes · No subtitles', state: 'working', percent: 62, step: 'Scanning the picture', moon: 110 },
+      { name: 'Lamp Keeper · episode 3', meta: '0:52:08', choices: 'No filters · Subtitles in Urdu', state: 'ready', moon: 160 },
+      { name: 'North Pier', meta: '1:31:55', choices: 'Skips nudity · Subtitles in French', state: 'failed', moon: 40 },
+    ];
+    return {
+      titles: rows.map((r) => ({
+        ...r,
+        ready: r.state === 'ready',
+        working: r.state === 'working',
+        failed: r.state === 'failed',
+        percentLabel: (r.percent ?? 0) + '%',
+        barStyle: 'height: 6px; background: #E5484F; width: ' + (r.percent ?? 0) + '%;',
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

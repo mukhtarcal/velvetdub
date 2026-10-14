@@ -33,7 +33,7 @@ h3 {
 
 h1 {
   font-size: 54px;
-  line-height: 1.1;
+  line-height: 64px;
 }
 
 h2 {
@@ -56,7 +56,7 @@ small,
   font-family: var(--font-body);
   font-weight: 700;
   font-stretch: 75%;
-  font-size: 13px;
+  font-size: 14px;
   text-transform: uppercase;
   letter-spacing: 0.18em;
   color: var(--brass);

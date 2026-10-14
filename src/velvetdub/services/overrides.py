@@ -15,10 +15,17 @@ class OverrideService:
         return read_model(path, Overrides) if path.exists() else Overrides()
 
     def keep(self, owner_id: str, title_id: str, event_id: str, *, keep: bool) -> Overrides:
+        return self.keep_many(owner_id, title_id, [event_id], keep=keep)
+
+    def keep_many(
+        self, owner_id: str, title_id: str, event_ids: list[str], *, keep: bool
+    ) -> Overrides:
+        """Keep in (or filter again) several detections at once, such as every mild word."""
         current = self.get(owner_id, title_id)
-        ids = [i for i in current.keep if i != event_id]
+        changing = set(event_ids)
+        ids = [i for i in current.keep if i not in changing]
         if keep:
-            ids.append(event_id)
+            ids.extend(dict.fromkeys(event_ids))
         updated = Overrides(keep=ids)
         manifest = self._store.get(owner_id, title_id)
         write_model(self._store.paths(manifest).overrides, updated)

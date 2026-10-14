@@ -2,10 +2,11 @@
 // to `request` and `uploadTitle` here, nowhere else.
 
 import type {
+  Capabilities,
   CorrectionInput,
   JobState,
   PlaybackInfo,
-  Profile,
+  ProcessChoices,
   ReviewInfo,
   ScriptLine,
   TitleSummary,
@@ -57,11 +58,18 @@ const enc = encodeURIComponent
 
 export const api = {
   listTitles: () => request<TitleSummary[]>('/titles'),
-  listProfiles: () => request<Profile[]>('/profiles'),
-  playback: (titleId: string, profile: string) =>
-    request<PlaybackInfo>(`/titles/${enc(titleId)}/playback?profile=${enc(profile)}`),
-  review: (titleId: string, profile: string) =>
-    request<ReviewInfo>(`/titles/${enc(titleId)}/review?profile=${enc(profile)}`),
+  /** One title's summary. The list is short and local, so this filters it rather than adding a route. */
+  titleSummary: async (titleId: string) =>
+    (await request<TitleSummary[]>('/titles')).find((t) => t.id === titleId) ?? null,
+  capabilities: () => request<Capabilities>('/capabilities'),
+  playback: (titleId: string) => request<PlaybackInfo>(`/titles/${enc(titleId)}/playback`),
+  review: (titleId: string) => request<ReviewInfo>(`/titles/${enc(titleId)}/review`),
+  /** Keep in (or filter again) many moments at once, such as every mild word. */
+  keepEvents: (titleId: string, eventIds: string[], keep: boolean) =>
+    request<{ keep: string[] }>(`/titles/${enc(titleId)}/keep`, {
+      method: 'PUT',
+      json: { event_ids: eventIds, keep },
+    }),
   keepEvent: (titleId: string, eventId: string) =>
     request<{ keep: string[] }>(`/titles/${enc(titleId)}/events/${enc(eventId)}/keep`, {
       method: 'PUT',
@@ -70,11 +78,8 @@ export const api = {
     request<{ keep: string[] }>(`/titles/${enc(titleId)}/events/${enc(eventId)}/keep`, {
       method: 'DELETE',
     }),
-  process: (titleId: string, subtitleLanguages: string[]) =>
-    request<JobState>(`/titles/${enc(titleId)}/process`, {
-      method: 'POST',
-      json: { subtitle_languages: subtitleLanguages },
-    }),
+  process: (titleId: string, choices: ProcessChoices) =>
+    request<JobState>(`/titles/${enc(titleId)}/process`, { method: 'POST', json: choices }),
   progress: (titleId: string) => request<JobState>(`/titles/${enc(titleId)}/progress`),
   script: (titleId: string, language: string) =>
     request<ScriptLine[]>(`/titles/${enc(titleId)}/script/${enc(language)}`),
@@ -88,9 +93,9 @@ export const api = {
       method: 'PUT',
       json: { content },
     }),
-  subtitleDownloadUrl: (titleId: string, language: string, format: 'vtt' | 'srt', profile?: string) =>
+  subtitleDownloadUrl: (titleId: string, language: string, format: 'vtt' | 'srt', mask: boolean) =>
     `/api/titles/${enc(titleId)}/subtitles/${enc(language)}.${format}?download=true` +
-    (profile ? `&profile=${enc(profile)}` : ''),
+    (mask ? '&mask=true' : ''),
   addCorrection: (titleId: string, correction: CorrectionInput) =>
     request<unknown>(`/titles/${enc(titleId)}/corrections`, { method: 'POST', json: correction }),
 }

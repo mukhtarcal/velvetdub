@@ -8,7 +8,7 @@ from velvetdub.storage.artifacts import read_model, write_model
 
 
 class BuildFiltersStage(Stage):
-    """Merge visual and spoken-word detections into one profile-independent timeline."""
+    """Merge visual and spoken-word detections into one viewer-independent timeline."""
 
     name = "build_filters"
 

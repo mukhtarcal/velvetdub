@@ -19,8 +19,8 @@ data/titles/<title-id>/
   translations/<lang>.json  same segment ids + text + target_duration (used by dubbing)
   scan/visual.json          raw visual detections (before merging with spoken-word detections)
   filters.json              detections: {id, category, severity, start, end, confidence, source, note, text, region}
-                            profile-independent; the action (mute/skip/blur) is decided per profile at playback
-  subtitles/<lang>.vtt      complete, unfiltered; masking (*****) is applied per profile at playback/export
+                            profile-independent; the action (mute/skip/blur) is decided at playback by the default rules and "Keep it in" choices
+  subtitles/<lang>.vtt      complete, unfiltered; masking (*****) is applied at playback/export
   audio/<track>.m4a         Phase 2: dubbed tracks (original is the first track)
   manifest.json             stage status + list of audio tracks, subtitle tracks, filter file
 ```
@@ -85,7 +85,7 @@ Design rule: **depend on interfaces, wire concrete classes in one place, keep ru
 - **Providers are swappable.** Each capability (transcription, text generation, video analysis, text moderation, and for Phase 2 source separation and speech synthesis) is an abstract class in `providers/base.py`. `TRANSLATION_PROVIDER`/`MODEL` choose the text generator and `MODERATION_PROVIDER`/`MODEL` choose the video analyzer. Vendors are subclasses registered by name. Choosing a vendor or model is `.env` only (`TRANSCRIPTION_PROVIDER`, `TRANSLATION_MODEL`, `MODERATION_MODEL`, …). Adding a vendor = one new file plus a registered factory. No pipeline code changes. Each provider's `identity` (vendor:model) is part of its stage's cache key, so switching models automatically re-runs exactly the affected stages.
 - **Providers are created lazily**, so a missing Phase 2 key never blocks Phase 1, and each command needs only the keys it uses.
 - **Stages are plug-ins.** Phase 2 dubbing is new `Stage` subclasses (separate, synthesize, mix) added to the stage list; the runner, storage and existing stages are untouched.
-- **Detection is separate from decision.** The pipeline stores profile-independent detections. `FilterPolicy` + `FilterProfile` decide actions per viewer at playback, so profiles and presets never need reprocessing.
+- **Detection is separate from decision.** The pipeline stores viewer-independent detections. `FilterPolicy` + the default rules decide actions at playback, and "Keep it in" (per moment, or a whole category or severity level) is stored per title, so changing them never needs reprocessing. Filter profiles and presets were removed.
 - **Multi-user is a seam, not a rewrite.** Every stored title and profile carries `owner_id`; every `TitleStore` call takes an owner id and treats other users' titles as not found; the API resolves the caller through `IdentityProvider` (today: always the local user). Going public means: a real `IdentityProvider` (sessions/OAuth), a database/object-storage `TitleStore`, a real job queue behind the stage runner, and the rights work. Routes, domain models and the pipeline do not change.
 - **Storage and media are interfaces too** (`TitleStore`, `MediaTool`), so cloud storage or other tooling is another subclass.
 - **Testing:** unit tests run entirely on fakes and temp directories; `.env` is never read in tests. The suite proves resume/caching, cache invalidation on model change, failure recording, owner isolation and identity swapping.
@@ -125,7 +125,7 @@ Design rule: **depend on interfaces, wire concrete classes in one place, keep ru
 - **Corrections:** "Flag this moment" in the player stores "missed" / "shouldn't have been filtered" with time, category and note in SQLite (`data/velvetdub.db`). They are recorded only; nothing yet uses them to tune detection.
 - **Local API protection:** requests must come from `127.0.0.1`/`localhost` (blocks DNS rebinding) and state-changing requests need a custom header (blocks other web pages). Ports are 8765 (API) and 5273 (web), with strict binding, to avoid colliding with other local projects.
 
-### 1.4 Profiles and presets
+### 1.4 Profiles and presets (dropped: see "Keep it in" on Review)
 - Presets (Kids G / Family PG / Teen / Language only / Custom) and per-category sliders; profiles per household member with a PIN-locked parent profile.
 - Settings apply at playback only — never reprocess.
 

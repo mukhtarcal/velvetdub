@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from velvetdub.domain.filtering import FilterTimeline
 from velvetdub.domain.usage import TokenUsage
+from velvetdub.features.scene_filtering.categories import in_scan_order
 from velvetdub.features.scene_filtering.factory import build_scene_scanner
 from velvetdub.features.scene_filtering.scanner import ClipScan
 from velvetdub.pipeline.context import PipelineContext
@@ -26,7 +27,10 @@ class VisualScanStage(Stage):
     """Cuts the film into small clips and has the scene scanner look at each one.
 
     Each clip's result is saved when it finishes, so a failure part way (a dropped connection,
-    a used-up quota) resumes at the failed clip instead of paying for the whole film again."""
+    a used-up quota) resumes at the failed clip instead of paying for the whole film again.
+
+    Only the categories you chose are looked for. With none chosen nothing is scanned: the stage
+    writes an empty list and no scanner (or API key) is touched."""
 
     name = "visual_scan"
 
@@ -37,11 +41,19 @@ class VisualScanStage(Stage):
         return [ctx.paths.visual_events]
 
     def config_key(self, ctx: PipelineContext) -> str:
-        return build_scene_scanner(ctx.providers, ctx.settings).config_key(ctx.settings)
+        categories = in_scan_order(ctx.options.filter_categories)
+        if not categories:
+            return "no-categories"
+        return build_scene_scanner(ctx.providers, ctx.settings, categories).config_key(ctx.settings)
 
     def run(self, ctx: PipelineContext) -> None:
+        categories = in_scan_order(ctx.options.filter_categories)
+        ctx.manifest.scanned_categories = categories
+        if not categories:
+            write_model(ctx.paths.visual_events, FilterTimeline())
+            return
         settings = ctx.settings
-        scanner = build_scene_scanner(ctx.providers, settings)
+        scanner = build_scene_scanner(ctx.providers, settings, categories)
         spec = scanner.clip_spec(settings)
         # Saved clips only count if the settings that made them are unchanged
         part_key = hashlib.sha256(self.config_key(ctx).encode()).hexdigest()[:16]

@@ -3,20 +3,16 @@ import { api } from '../api/client'
 import type { ScriptLine } from '../api/types'
 import { useAsync } from '../hooks/useAsync'
 import { formatTime } from '../lib/format'
-import { languageLabel } from '../lib/titles'
 import { ErrorNote } from './PageHeader'
 
-/** Line-by-line subtitle editor with SRT/VTT import and export. */
+/** Line-by-line subtitle editor for one language, with SRT/VTT import and export. */
 export function ScriptEditor({
   titleId,
-  languages,
-  profileId,
+  language,
 }: {
   titleId: string
-  languages: string[]
-  profileId: string
+  language: string
 }) {
-  const [language, setLanguage] = useState(languages[0])
   const script = useAsync(() => api.script(titleId, language), [titleId, language])
   const [notice, setNotice] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -38,25 +34,15 @@ export function ScriptEditor({
   return (
     <div className="stack">
       <div className="row-actions">
-        <label className="field">
-          Language
-          <select value={language} onChange={(e) => setLanguage(e.target.value)}>
-            {languages.map((code) => (
-              <option key={code} value={code}>
-                {languageLabel(code)}
-              </option>
-            ))}
-          </select>
-        </label>
         <a
           className="button secondary"
-          href={api.subtitleDownloadUrl(titleId, language, 'srt', mask ? profileId : undefined)}
+          href={api.subtitleDownloadUrl(titleId, language, 'srt', mask)}
         >
           Export SRT
         </a>
         <a
           className="button secondary"
-          href={api.subtitleDownloadUrl(titleId, language, 'vtt', mask ? profileId : undefined)}
+          href={api.subtitleDownloadUrl(titleId, language, 'vtt', mask)}
         >
           Export VTT
         </a>

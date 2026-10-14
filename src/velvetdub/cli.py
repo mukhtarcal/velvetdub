@@ -9,9 +9,11 @@ import typer
 
 from velvetdub.config.settings import Settings
 from velvetdub.container import build_container
+from velvetdub.domain.filtering import FilterCategory
 from velvetdub.domain.user import LOCAL_USER
 from velvetdub.errors import StageFailedError, VelvetDubError
-from velvetdub.features.scene_filtering.factory import build_scene_scanner
+from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
+from velvetdub.features.scene_filtering.factory import build_scene_scanner, scannable_categories
 from velvetdub.pipeline.context import ProcessOptions
 from velvetdub.pipeline.observer import PipelineObserver
 from velvetdub.providers import registry
@@ -58,7 +60,7 @@ def doctor() -> None:
         "transcription": (lambda: providers.transcriber, settings.transcription_provider),
         "translation": (lambda: providers.text_generator, settings.translation_provider),
         "visual moderation": (
-            lambda: build_scene_scanner(providers, settings),
+            lambda: build_scene_scanner(providers, settings, []),
             settings.moderation_provider,
         ),
         "text moderation": (lambda: providers.text_moderator, settings.text_moderation_provider),
@@ -92,25 +94,51 @@ def providers() -> None:
 @app.command()
 def process(
     file: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
-    subs: Annotated[str, typer.Option(help="Comma-separated subtitle languages")] = "en",
+    subs: Annotated[
+        str, typer.Option(help="Comma-separated subtitle languages (default: none)")
+    ] = "",
+    filters: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated picture filters to scan for: nudity, sexual_content, "
+            "scary_scenes, violence (default: none)"
+        ),
+    ] = "",
     name: Annotated[str | None, typer.Option(help="Title name (default: file name)")] = None,
     title_id: Annotated[str | None, typer.Option(help="Re-run an existing title")] = None,
 ) -> None:
     """Add a film and run the pipeline (re-running skips finished stages)."""
     languages = [lang.strip() for lang in subs.split(",") if lang.strip()]
-    if not languages:
-        typer.secho("--subs needs at least one language code", fg=typer.colors.RED)
+    try:
+        categories = [FilterCategory(c.strip()) for c in filters.split(",") if c.strip()]
+    except ValueError as exc:
+        typer.secho(f"--filters: {exc}", fg=typer.colors.RED)
+        raise typer.Exit(code=1) from exc
+    picture_only = [c for c in categories if c not in PICTURE_CATEGORIES]
+    if picture_only:
+        typer.secho(f"--filters: {picture_only[0].value} can't be scanned", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     try:
         container = build_container()
+        unsupported = [c for c in categories if c not in scannable_categories(container.settings)]
+        if unsupported:
+            typer.secho(
+                f"This scanner can't check for {unsupported[0].value.replace('_', ' ')}.",
+                fg=typer.colors.RED,
+            )
+            raise typer.Exit(code=1)
         # The CLI is single-user by nature; the API resolves the user per request instead.
         if title_id is None:
             manifest = container.store.create(LOCAL_USER.id, name or file.stem, file)
         else:
             manifest = container.store.get(LOCAL_USER.id, title_id)
         typer.echo(f"Title {manifest.title_id}: {manifest.name}")
-        container.process(manifest, ProcessOptions(subtitle_languages=languages), ConsoleObserver())
+        container.process(
+            manifest,
+            ProcessOptions(subtitle_languages=languages, filter_categories=categories),
+            ConsoleObserver(),
+        )
     except StageFailedError as exc:
         typer.secho(f"{exc} ({exc.__cause__})", fg=typer.colors.RED)
         typer.echo(f"Fix the problem, then re-run with --title-id {manifest.title_id}")
@@ -131,8 +159,20 @@ def titles() -> None:
 
 
 @app.command()
-def serve(port: int = 8765) -> None:
+def serve(
+    port: int = 8765,
+    reload: Annotated[
+        bool, typer.Option(help="Restart when the code changes (for development)")
+    ] = False,
+) -> None:
     """Run the API on localhost only."""
     import uvicorn
 
-    uvicorn.run("velvetdub.api.app:create_app", factory=True, host="127.0.0.1", port=port)
+    uvicorn.run(
+        "velvetdub.api.app:create_app",
+        factory=True,
+        host="127.0.0.1",
+        port=port,
+        reload=reload,
+        reload_dirs=["src"] if reload else None,
+    )

@@ -1,12 +1,15 @@
+import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
+from tests.conftest import FakeMediaTool
 from velvetdub.api.app import create_app
 from velvetdub.auth.identity import IdentityProvider
-from velvetdub.container import Container
+from velvetdub.config.settings import Settings
+from velvetdub.container import Container, build_container
 from velvetdub.domain.user import User
 
 
@@ -50,3 +53,97 @@ def test_swapping_identity_isolates_users(container: Container, source_file: Pat
 def test_path_traversal_is_not_served(container: Container, path: str) -> None:
     client = TestClient(create_app(container))
     assert client.get(path).status_code in (404, 422)
+
+
+# --- choosing filters and subtitles ----------------------------------------------------------
+
+CLIENT = {"x-velvetdub-client": "test"}
+
+
+def wait_until_finished(client: TestClient, title_id: str) -> dict[str, object]:
+    for _ in range(100):
+        state = client.get(f"/api/titles/{title_id}/progress").json()
+        if state["status"] in ("done", "failed"):
+            return state  # type: ignore[no-any-return]
+        time.sleep(0.05)
+    raise AssertionError("processing did not finish")
+
+
+def test_a_title_can_be_processed_with_no_subtitles_and_no_filters(
+    container: Container, source_file: Path
+) -> None:
+    manifest = container.store.create("local", "Movie", source_file)
+    client = TestClient(create_app(container), headers=CLIENT)
+
+    response = client.post(f"/api/titles/{manifest.title_id}/process", json={})
+    assert response.status_code == 202
+    assert wait_until_finished(client, manifest.title_id)["status"] == "done"
+
+    title = client.get("/api/titles").json()[0]
+    assert title["choices"] == {"filter_categories": [], "subtitle_languages": []}
+    assert title["scanned_categories"] == []
+    assert client.get(f"/api/titles/{manifest.title_id}").json()["subtitle_tracks"] == []
+
+
+def test_the_chosen_filters_are_scanned_and_listed_on_the_title(
+    container: Container, source_file: Path
+) -> None:
+    manifest = container.store.create("local", "Movie", source_file)
+    client = TestClient(create_app(container), headers=CLIENT)
+
+    body = {"subtitle_languages": ["en"], "filter_categories": ["violence", "nudity"]}
+    assert client.post(f"/api/titles/{manifest.title_id}/process", json=body).status_code == 202
+    wait_until_finished(client, manifest.title_id)
+
+    title = client.get("/api/titles").json()[0]
+    assert title["choices"]["filter_categories"] == ["nudity", "violence"]
+    assert title["scanned_categories"] == ["nudity", "violence"]
+    review = client.get(f"/api/titles/{manifest.title_id}/review").json()
+    assert review["scanned_categories"] == ["nudity", "violence"]
+
+
+@pytest.mark.parametrize("category", ["swearing", "drugs_and_drinking", "nonsense"])
+def test_only_the_four_picture_filters_can_be_chosen(
+    container: Container, source_file: Path, category: str
+) -> None:
+    manifest = container.store.create("local", "Movie", source_file)
+    client = TestClient(create_app(container), headers=CLIENT)
+    body = {"filter_categories": [category]}
+    assert client.post(f"/api/titles/{manifest.title_id}/process", json=body).status_code == 422
+
+
+def test_a_filter_the_scanner_cannot_check_is_refused_in_plain_words(
+    settings: Settings, source_file: Path, media: FakeMediaTool
+) -> None:
+    frames = settings.model_copy(update={"moderation_provider": "fake-frames"})
+    container = build_container(frames, media=media)
+    manifest = container.store.create("local", "Movie", source_file)
+    client = TestClient(create_app(container), headers=CLIENT)
+
+    body = {"filter_categories": ["nudity", "violence", "scary_scenes"]}
+    response = client.post(f"/api/titles/{manifest.title_id}/process", json=body)
+    assert response.status_code == 422
+    assert response.json()["detail"] == "This scanner can't check for scary scenes or violence."
+
+    ok = client.post(
+        f"/api/titles/{manifest.title_id}/process", json={"filter_categories": ["nudity"]}
+    )
+    assert ok.status_code == 202
+
+
+def test_capabilities_say_what_the_scanner_can_check(
+    settings: Settings, media: FakeMediaTool
+) -> None:
+    video = TestClient(create_app(build_container(settings, media=media)))
+    assert video.get("/api/capabilities").json()["scan_categories"] == [
+        "nudity",
+        "sexual_content",
+        "scary_scenes",
+        "violence",
+    ]
+    frames = settings.model_copy(update={"moderation_provider": "fake-frames"})
+    frame_client = TestClient(create_app(build_container(frames, media=media)))
+    assert frame_client.get("/api/capabilities").json()["scan_categories"] == [
+        "nudity",
+        "sexual_content",
+    ]

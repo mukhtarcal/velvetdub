@@ -1,4 +1,4 @@
-"""Subtitle rendering (with per-profile masking), export, line editing and import."""
+"""Subtitle rendering (with filtered words masked), export, line editing and import."""
 
 from typing import Literal
 
@@ -41,15 +41,15 @@ class SubtitleService:
         title_id: str,
         language: str,
         *,
-        profile_id: str | None,
+        mask: bool,
         fmt: SubtitleFormat = "vtt",
     ) -> str:
         manifest = self._store.get(owner_id, title_id)
         if language not in {t.language for t in manifest.subtitle_tracks}:
             raise SubtitleNotFoundError(language)
         cues = parse_cues(self._store.paths(manifest).subtitles(language).read_text("utf-8"))
-        if profile_id is not None:
-            filters = self._playback.resolved_filters(owner_id, title_id, profile_id)
+        if mask:
+            filters = self._playback.resolved_filters(owner_id, title_id)
             cues = mask_cues(cues, filters)
         return format_srt(cues) if fmt == "srt" else format_webvtt(cues)
 

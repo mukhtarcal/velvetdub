@@ -1,5 +1,6 @@
 """The shape the video model answers in, and how its answer becomes filter events."""
 
+from collections.abc import Collection
 from enum import StrEnum
 from typing import Literal
 
@@ -44,10 +45,20 @@ def parse_clock(value: str) -> float:
         raise ProviderError(f"Could not read timestamp '{value}' from the moderator.") from None
 
 
-def to_events(result: ClipResult, *, offset: float, source: str) -> list[FilterEvent]:
-    """Place a clip's detections on the full film's timeline (`offset` is the clip's start)."""
+def to_events(
+    result: ClipResult,
+    *,
+    offset: float,
+    source: str,
+    allowed: Collection[FilterCategory] | None = None,
+) -> list[FilterEvent]:
+    """Place a clip's detections on the full film's timeline (`offset` is the clip's start).
+    Detections outside `allowed` are dropped: the model was only asked about those categories, so
+    anything else is a stray answer."""
     events: list[FilterEvent] = []
     for index, found in enumerate(result.detections):
+        if allowed is not None and FilterCategory(found.category.value) not in allowed:
+            continue
         start = offset + parse_clock(found.start)
         end = offset + parse_clock(found.end)
         events.append(

@@ -1,28 +1,30 @@
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 
-// Only pages that exist are listed. Profiles and Settings arrive in later steps (1.4, 1.5).
+// Only pages that exist are listed. Settings arrives in a later step (1.5).
 const NAV = [
-  { to: '/', label: 'Library', end: true },
-  { to: '/add', label: 'Add a title', end: false },
+  { to: '/', label: 'Add a title', end: true },
+  { to: '/library', label: 'Library', end: false },
 ]
 
+/** A slim velvet bar across the top, with the page below it. */
 export function AppLayout() {
   return (
     <div className="shell">
-      <nav className="sidebar" aria-label="Main">
-        <div className="wordmark">Velvet Dub</div>
-        <div className="gilt-rule" aria-hidden="true" />
-        <ul>
-          {NAV.map((item) => (
-            <li key={item.to}>
-              <NavLink to={item.to} end={item.end}>
+      <header className="topbar">
+        <div className="topbar-inner">
+          <Link to="/" className="wordmark">
+            Velvet Dub
+          </Link>
+          <nav aria-label="Main">
+            {NAV.map((item) => (
+              <NavLink key={item.to} to={item.to} end={item.end}>
                 {item.label}
               </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-      <main className="content">
+            ))}
+          </nav>
+        </div>
+      </header>
+      <main className="page">
         <Outlet />
       </main>
     </div>

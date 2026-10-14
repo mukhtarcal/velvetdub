@@ -39,11 +39,6 @@ export interface SubtitleTrack {
   url: string
 }
 
-export interface Profile {
-  id: string
-  name: string
-}
-
 export interface PlaybackInfo {
   title_id: string
   name: string
@@ -51,7 +46,6 @@ export interface PlaybackInfo {
   source_url: string
   audio_tracks: AudioTrack[]
   subtitle_tracks: SubtitleTrack[]
-  profile: Profile
   filters: FilterItem[]
   kept: string[]
   runtime_removed: number
@@ -61,9 +55,18 @@ export interface ReviewInfo {
   title_id: string
   name: string
   duration: number | null
-  profile: Profile
   filters: ReviewFilterItem[]
   runtime_removed: number
+  scanned_categories: string[] | null
+}
+
+/** The four things the picture scan can be asked to look for (swearing needs no scan). */
+export type ScanCategory = 'nudity' | 'sexual_content' | 'scary_scenes' | 'violence'
+
+/** What was asked for the last time processing started. */
+export interface Choices {
+  filter_categories: string[]
+  subtitle_languages: string[]
 }
 
 export interface TitleSummary {
@@ -72,6 +75,18 @@ export interface TitleSummary {
   created_at: string
   duration: number | null
   stages: Record<string, string>
+  choices: Choices | null
+  /** What the picture scan actually looked for; null until it has run. */
+  scanned_categories: string[] | null
+}
+
+export interface ProcessChoices {
+  subtitle_languages: string[]
+  filter_categories: ScanCategory[]
+}
+
+export interface Capabilities {
+  scan_categories: ScanCategory[]
 }
 
 export type StageProgress = 'pending' | 'running' | 'done' | 'skipped' | 'failed'

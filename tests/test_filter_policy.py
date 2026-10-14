@@ -10,7 +10,7 @@ from velvetdub.domain.filtering import (
     FilterTimeline,
     Severity,
 )
-from velvetdub.domain.presets import PRESETS, profile_from_preset
+from velvetdub.domain.rules import DEFAULT_RULES, default_profile
 
 
 def event(
@@ -86,15 +86,16 @@ def test_event_end_before_start_is_rejected() -> None:
         event(start=5, end=1)
 
 
-@pytest.mark.parametrize("preset", list(PRESETS))
-def test_every_preset_builds_a_profile(preset: str) -> None:
-    built = profile_from_preset(preset, profile_id="x", owner_id="u", name=preset)
-    assert built.rules
-
-
-def test_unknown_preset_lists_the_options() -> None:
-    with pytest.raises(ValueError, match="kids"):
-        profile_from_preset("nope", profile_id="x", owner_id="u", name="n")
+def test_by_default_every_kind_of_moment_is_acted_on() -> None:
+    assert set(DEFAULT_RULES) == set(FilterCategory)
+    mine = default_profile("u")
+    assert mine.owner_id == "u"
+    assert DEFAULT_RULES[FilterCategory.SWEARING].action is FilterAction.MUTE
+    assert DEFAULT_RULES[FilterCategory.BLASPHEMY].action is FilterAction.MUTE
+    for category in FilterCategory:
+        assert DEFAULT_RULES[category].min_severity is Severity.MILD  # even mild is acted on
+        if category not in (FilterCategory.SWEARING, FilterCategory.BLASPHEMY):
+            assert DEFAULT_RULES[category].action is FilterAction.SKIP
 
 
 def test_picture_moments_are_widened_by_a_second_each_side_at_playback() -> None:

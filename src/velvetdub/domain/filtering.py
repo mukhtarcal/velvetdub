@@ -6,8 +6,8 @@ Detection and decision are separate on purpose:
 * A FilterProfile holds one viewer's standards.
 * FilterPolicy combines them into an action at playback time.
 
-So changing profiles or presets never requires reprocessing a film, and each household member
-can have their own settings over the same detections.
+So changing what is acted on never requires reprocessing a film, and each household member
+can make their own "Keep it in" choices over the same detections.
 """
 
 from collections.abc import Iterable
@@ -123,7 +123,7 @@ PICTURE_TAIL_SECONDS = 1.0
 
 
 class FilterPolicy:
-    """Decides what happens to each detection for a given profile."""
+    """Decides what happens to each detection under a set of rules."""
 
     def action_for(self, event: FilterEvent, profile: FilterProfile) -> FilterAction | None:
         rule = profile.rules.get(event.category)

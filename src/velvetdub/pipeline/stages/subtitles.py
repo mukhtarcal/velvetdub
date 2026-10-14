@@ -12,7 +12,7 @@ from velvetdub.subtitles.webvtt import Cue, format_webvtt
 class SubtitlesStage(Stage):
     """Writes complete, unfiltered subtitles.
 
-    Masking filtered words (`*****`) depends on the viewer's profile, so it happens at playback
+    Masking filtered words (`*****`) depends on what the viewer keeps in, so it happens at playback
     and export time, not here.
     """
 

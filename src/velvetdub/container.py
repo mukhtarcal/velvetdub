@@ -9,7 +9,8 @@ from dataclasses import dataclass
 from velvetdub.auth.identity import IdentityProvider, LocalIdentityProvider
 from velvetdub.config.settings import Settings
 from velvetdub.domain.filtering import FilterPolicy
-from velvetdub.domain.manifest import Manifest
+from velvetdub.domain.manifest import Choices, Manifest
+from velvetdub.features.scene_filtering.categories import in_scan_order
 from velvetdub.media.tools import FFmpegMediaTool, MediaTool
 from velvetdub.pipeline.context import PipelineContext, ProcessOptions
 from velvetdub.pipeline.observer import NullObserver, PipelineObserver
@@ -21,7 +22,6 @@ from velvetdub.services.overrides import OverrideService
 from velvetdub.services.playback import PlaybackService
 from velvetdub.services.subtitles import SubtitleService
 from velvetdub.storage.corrections import CorrectionRepository, SqliteCorrectionRepository
-from velvetdub.storage.profiles import PresetProfileRepository, ProfileRepository
 from velvetdub.storage.title_store import FileSystemTitleStore, TitleStore
 
 
@@ -33,7 +33,6 @@ class Container:
     providers: ProviderSet
     media: MediaTool
     policy: FilterPolicy
-    profiles: ProfileRepository
     corrections: CorrectionRepository
     overrides: OverrideService
     playback: PlaybackService
@@ -46,6 +45,11 @@ class Container:
         options: ProcessOptions,
         observer: PipelineObserver | None = None,
     ) -> None:
+        manifest.choices = Choices(
+            filter_categories=in_scan_order(options.filter_categories),
+            subtitle_languages=list(options.subtitle_languages),
+        )
+        self.store.save(manifest)
         ctx = PipelineContext(
             manifest=manifest,
             paths=self.store.paths(manifest),
@@ -64,9 +68,8 @@ def build_container(
     settings = settings or Settings()
     store = FileSystemTitleStore(settings.data_path)
     policy = FilterPolicy()
-    profiles = PresetProfileRepository()
     overrides = OverrideService(store)
-    playback = PlaybackService(store, profiles, overrides, policy)
+    playback = PlaybackService(store, overrides, policy)
 
     def run(manifest: Manifest, options: ProcessOptions, observer: PipelineObserver) -> None:
         container.process(manifest, options, observer)
@@ -78,7 +81,6 @@ def build_container(
         providers=ProviderSet(settings),
         media=media or FFmpegMediaTool(),
         policy=policy,
-        profiles=profiles,
         corrections=SqliteCorrectionRepository(settings.data_path / "velvetdub.db"),
         overrides=overrides,
         playback=playback,

@@ -35,9 +35,24 @@
   --gilt: #c99a3e;
   --fringe: #b88a34;
 
+  /* review timeline: one colour per kind of moment. These mark what a filter will cut, so they
+   * sit beside signal; every lane is also named in words. */
+  --cat-nudity: #e5484f;
+  --cat-sexual-content: #e8c14a;
+  --cat-swearing: #4da3e0;
+  --cat-violence: #e8853a;
+  --cat-scary-scenes: #a58ae0;
+  --cat-drugs: #6cc08b;
+
   /* tickets */
   --ticket-ink: #1a1010;
   --ticket-red: #7a1520;
+
+  /* placeholder harbor scene (until real frames exist) */
+  --night-sky: #1b2027;
+  --night-sea: #131920;
+  --silhouette: #0d1014;
+  --lamp: #f3d9a4;
 
   /* subtitles */
   --subtitle-second: #e9d9b4;

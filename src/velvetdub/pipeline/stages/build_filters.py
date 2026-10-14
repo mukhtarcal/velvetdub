@@ -27,3 +27,5 @@ class BuildFiltersStage(Stage):
         spoken = ctx.providers.text_moderator.scan_transcript(transcript)
         timeline = FilterTimeline(events=[*visual.events, *spoken])
         write_model(ctx.paths.filters, FilterTimeline(events=timeline.sorted_events()))
+        # The library picture was chosen to avoid the old scenes, so choose it again.
+        ctx.paths.poster.unlink(missing_ok=True)

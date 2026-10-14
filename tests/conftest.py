@@ -10,6 +10,7 @@ from velvetdub.media.tools import MediaTool, ScanClip
 class FakeMediaTool(MediaTool):
     def __init__(self) -> None:
         self.extract_calls = 0
+        self.poster_calls: list[float] = []
 
     def extract_audio(self, source: Path, dest: Path) -> None:
         self.extract_calls += 1
@@ -40,6 +41,11 @@ class FakeMediaTool(MediaTool):
         for frame in frames:
             frame.write_bytes(b"frame")
         return frames
+
+    def extract_poster(self, source: Path, dest: Path, *, at_seconds: float) -> None:
+        self.poster_calls.append(at_seconds)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"jpeg")
 
 
 @pytest.fixture

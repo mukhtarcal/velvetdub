@@ -3,7 +3,6 @@
 
 import type {
   Capabilities,
-  CorrectionInput,
   JobState,
   PlaybackInfo,
   ProcessChoices,
@@ -96,8 +95,6 @@ export const api = {
   subtitleDownloadUrl: (titleId: string, language: string, format: 'vtt' | 'srt', mask: boolean) =>
     `/api/titles/${enc(titleId)}/subtitles/${enc(language)}.${format}?download=true` +
     (mask ? '&mask=true' : ''),
-  addCorrection: (titleId: string, correction: CorrectionInput) =>
-    request<unknown>(`/titles/${enc(titleId)}/corrections`, { method: 'POST', json: correction }),
 }
 
 /** Upload a film as the raw request body so a multi-gigabyte file is streamed, not buffered. */

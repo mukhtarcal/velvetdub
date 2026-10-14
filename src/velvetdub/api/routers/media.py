@@ -19,6 +19,19 @@ def source_video(title_id: str, container: ContainerDep, user: CurrentUser) -> F
     return FileResponse(path, media_type=media_type)
 
 
+POSTER_CACHE = {"Cache-Control": "private, max-age=3600"}
+
+
+@router.get("/poster")
+def poster(title_id: str, container: ContainerDep, user: CurrentUser) -> FileResponse:
+    """A picture from the film for the library (see `services/posters.py`). It is a 404 until
+    the film has been scanned, and the page shows the harbor scene instead."""
+    path = container.posters.get(user.id, title_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="No picture for this title yet.")
+    return FileResponse(path, media_type="image/jpeg", headers=POSTER_CACHE)
+
+
 @router.get("/audio/{track_id}")
 def audio_track(
     title_id: str, track_id: str, container: ContainerDep, user: CurrentUser

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api/client'
 import type { JobState, ProcessChoices, TitleSummary } from '../api/types'
 import { PosterCurtains } from '../components/Curtains'
-import { Harbor } from '../components/Harbor'
+import { Poster } from '../components/Poster'
 import { ErrorNote, PageHeader } from '../components/PageHeader'
 import { useAsync } from '../hooks/useAsync'
 import { formatTime } from '../lib/format'
@@ -90,7 +90,7 @@ export function LibraryPage() {
           return (
             <li key={title.id} className="title-card">
               <div className="poster">
-                <Harbor moon={40 + ((index * 50) % 140)} />
+                <Poster titleId={title.id} fallbackMoon={40 + ((index * 50) % 140)} />
                 {status.kind === 'working' && <PosterCurtains />}
               </div>
               <div className="info">

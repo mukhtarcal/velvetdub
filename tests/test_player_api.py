@@ -1,14 +1,19 @@
+import subprocess
 import time
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.conftest import FakeMediaTool
 from velvetdub.api.app import create_app
 from velvetdub.container import Container
+from velvetdub.domain.filtering import FilterCategory, FilterEvent, FilterTimeline, Severity
 from velvetdub.domain.manifest import Manifest
 from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.pipeline.context import ProcessOptions
+from velvetdub.services.posters import PosterService
+from velvetdub.storage.artifacts import read_model
 
 CLIENT = {"x-velvetdub-client": "test"}
 
@@ -308,3 +313,120 @@ def test_progress_for_unknown_or_idle_titles_is_404(
 ) -> None:
     assert client.get("/api/titles/nope/progress").status_code == 404
     assert client.get(f"{base(processed)}/progress").status_code == 404  # never queued via the API
+
+
+# --- library poster ----------------------------------------------------------------------
+
+
+def test_the_poster_comes_from_a_moment_clear_of_every_scene_found(
+    client: TestClient, processed: Manifest, media: FakeMediaTool
+) -> None:
+    first = client.get(f"{base(processed)}/media/poster")
+    assert first.status_code == 200
+    assert first.headers["content-type"] == "image/jpeg"
+    assert first.content == b"jpeg"
+    # The fake scan found violence at 10-20 s of the 60 s film. 6, 12, 18, 24 and 30 s are all
+    # within ten seconds of it, so 36 s is the first moment clear of it.
+    assert media.poster_calls == [36.0]
+
+    assert client.get(f"{base(processed)}/media/poster").status_code == 200
+    assert media.poster_calls == [36.0]  # the second request reused the saved picture
+
+
+def test_there_is_no_poster_before_the_film_has_been_scanned(
+    client: TestClient, container: Container, source_file: Path, media: FakeMediaTool
+) -> None:
+    fresh = container.store.create("local", "Fresh", source_file)
+    assert client.get(f"{base(fresh)}/media/poster").status_code == 404
+    assert media.poster_calls == []  # no frame was taken, so none could show a filtered scene
+
+
+def test_a_poster_is_made_from_ten_percent_in_when_no_scene_was_found(
+    container: Container, source_file: Path, media: FakeMediaTool
+) -> None:
+    manifest = container.store.create("local", "Quiet", source_file)
+    container.process(manifest, ProcessOptions())  # no filters chosen, so no scenes
+    client = TestClient(create_app(container), headers=CLIENT)
+    assert client.get(f"{base(manifest)}/media/poster").status_code == 200
+    assert media.poster_calls == [6.0]
+
+
+def test_no_poster_when_scenes_cover_the_whole_film(
+    container: Container, processed: Manifest, media: FakeMediaTool
+) -> None:
+    paths = container.store.paths(processed)
+    paths.filters.write_text(
+        FilterTimeline(
+            events=[
+                FilterEvent(
+                    id="all",
+                    category=FilterCategory.NUDITY,
+                    severity=Severity.STRONG,
+                    start=0,
+                    end=60,
+                    source="t",
+                )
+            ]
+        ).model_dump_json()
+    )
+    client = TestClient(create_app(container), headers=CLIENT)
+    assert client.get(f"{base(processed)}/media/poster").status_code == 404
+    assert media.poster_calls == []
+
+
+def test_spoken_words_do_not_keep_the_poster_away(
+    container: Container, source_file: Path, media: FakeMediaTool
+) -> None:
+    # The fake transcript has swearing at 4-6 s; only picture scenes matter for the poster.
+    manifest = container.store.create("local", "Words", source_file)
+    container.process(manifest, ProcessOptions())
+    assert any(
+        e.category is FilterCategory.SWEARING
+        for e in read_model(container.store.paths(manifest).filters, FilterTimeline).events
+    )
+    TestClient(create_app(container), headers=CLIENT).get(f"{base(manifest)}/media/poster")
+    assert media.poster_calls == [6.0]
+
+
+def test_a_failed_poster_is_a_404_and_leaves_nothing_behind(
+    client: TestClient, container: Container, processed: Manifest
+) -> None:
+    class Broken(FakeMediaTool):
+        def extract_poster(self, source: Path, dest: Path, *, at_seconds: float) -> None:
+            dest.write_bytes(b"half")
+            raise subprocess.CalledProcessError(1, "ffmpeg")
+
+    container.posters = PosterService(container.store, Broken())
+    assert client.get(f"{base(processed)}/media/poster").status_code == 404
+    folder = container.store.paths(processed).root
+    assert not list(folder.glob("poster*"))
+
+
+def test_rebuilding_the_filters_drops_the_saved_poster(
+    client: TestClient, container: Container, processed: Manifest, media: FakeMediaTool
+) -> None:
+    client.get(f"{base(processed)}/media/poster")
+    assert container.store.paths(processed).poster.exists()
+
+    container.settings.moderation_model = "another-model"  # re-runs the scan, then the merge
+    container.providers.__dict__.pop("video_analyzer", None)
+    container.process(
+        processed,
+        ProcessOptions(filter_categories=list(PICTURE_CATEGORIES), subtitle_languages=["en", "es"]),
+    )
+    assert not container.store.paths(processed).poster.exists()
+
+
+def test_other_users_poster_is_not_found(container: Container, processed: Manifest) -> None:
+    from starlette.requests import Request
+
+    from velvetdub.auth.identity import IdentityProvider
+    from velvetdub.domain.user import User
+
+    class Someone(IdentityProvider):
+        def current_user(self, request: Request) -> User:
+            return User(id="intruder", display_name="x")
+
+    container.identity = Someone()
+    other = TestClient(create_app(container), headers=CLIENT)
+    assert other.get(f"{base(processed)}/media/poster").status_code == 404

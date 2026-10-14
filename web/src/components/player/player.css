@@ -186,30 +186,6 @@ button.icon-button:hover {
   z-index: 1;
 }
 
-.flag-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 16px;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
-  max-width: 520px;
-}
-
-.flag-form fieldset {
-  border: 0;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.flag-form legend {
-  color: var(--ink);
-  margin-bottom: 6px;
-}
-
 /* ---- watch page ------------------------------------------------------------------- */
 
 .watch {

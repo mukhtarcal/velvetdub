@@ -37,6 +37,11 @@ class TitlePaths:
         return self.root / "audio" / f"{safe_name(track_id)}.m4a"
 
     @property
+    def poster(self) -> Path:
+        """The picture shown for the title in the library, taken from the film itself."""
+        return self.root / "poster.jpg"
+
+    @property
     def transcript(self) -> Path:
         return self.root / "transcript.json"
 

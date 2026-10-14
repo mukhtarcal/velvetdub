@@ -52,6 +52,16 @@ class MediaTool(ABC):
     def extract_frames(self, clip: Path, out_dir: Path) -> list[Path]:
         """Write every frame of `clip` as a JPEG, in order, and return their paths."""
 
+    @abstractmethod
+    def extract_poster(self, source: Path, dest: Path, *, at_seconds: float) -> None:
+        """Write one representative picture from near `at_seconds` as a JPEG at `dest`."""
+
+
+POSTER_WIDTH = 640
+# ffmpeg's `thumbnail` filter picks the most typical frame out of this many, which skips the
+# black or half-faded frames that a single frame at an exact time often lands on.
+POSTER_CANDIDATES = 100
+
 
 class FFmpegMediaTool(MediaTool):
     def __init__(self) -> None:
@@ -110,3 +120,10 @@ class FFmpegMediaTool(MediaTool):
         command = [self._ffmpeg, "-y", "-i", str(clip), "-q:v", "3", str(out_dir / "f_%05d.jpg")]
         subprocess.run(command, check=True, capture_output=True)
         return sorted(out_dir.glob("f_*.jpg"))
+
+    def extract_poster(self, source: Path, dest: Path, *, at_seconds: float) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        command = [self._ffmpeg, "-y", "-ss", f"{max(0.0, at_seconds):.2f}", "-i", str(source)]
+        command += ["-vf", f"thumbnail={POSTER_CANDIDATES},scale={POSTER_WIDTH}:-2"]
+        command += ["-frames:v", "1", "-q:v", "3", str(dest)]
+        subprocess.run(command, check=True, capture_output=True)

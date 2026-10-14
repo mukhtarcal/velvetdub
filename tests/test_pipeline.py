@@ -11,12 +11,15 @@ from velvetdub.domain.filtering import FilterCategory, FilterTimeline
 from velvetdub.domain.manifest import StageStatus
 from velvetdub.domain.usage import TokenUsage
 from velvetdub.errors import QuotaExceededError, StageFailedError
+from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.media.tools import ScanClip
 from velvetdub.pipeline.context import ProcessOptions
 from velvetdub.pipeline.observer import NullObserver
 from velvetdub.pipeline.stages.visual_scan import ScanUsage
 from velvetdub.providers.fake import FakeVideoAnalyzer
 from velvetdub.storage.artifacts import read_model
+
+ALL_FILTERS = list(PICTURE_CATEGORIES)
 
 
 class RecordingObserver(NullObserver):
@@ -62,7 +65,7 @@ def test_filters_merge_visual_and_spoken_detections(
     container: Container, source_file: Path
 ) -> None:
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions())
+    container.process(manifest, ProcessOptions(filter_categories=ALL_FILTERS))
 
     timeline = read_model(container.store.paths(manifest).filters, FilterTimeline)
     categories = [e.category for e in timeline.events]
@@ -100,12 +103,13 @@ def test_adding_a_language_reruns_only_dependent_stages(
 
 def test_changing_the_model_invalidates_that_stage(container: Container, source_file: Path) -> None:
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions())
+    options = ProcessOptions(filter_categories=ALL_FILTERS)
+    container.process(manifest, options)
 
     container.providers.__dict__.pop("video_analyzer")  # drop the cached provider
     container.settings.moderation_model = "another-model"
     observer = RecordingObserver()
-    container.process(manifest, ProcessOptions(), observer)
+    container.process(manifest, options, observer)
 
     # The scan re-runs with the new model, and the filter merge that consumes it follows.
     assert observer.started == ["visual_scan", "build_filters"]
@@ -153,7 +157,7 @@ def test_visual_scan_places_each_clips_detections_on_the_film_timeline(
 ) -> None:
     container = build_container(settings, media=TwoClipMedia())
     manifest = container.store.create("local", "Long film", source_file)
-    container.process(manifest, ProcessOptions())
+    container.process(manifest, ProcessOptions(filter_categories=ALL_FILTERS))
 
     timeline = read_model(container.store.paths(manifest).visual_events, FilterTimeline)
     assert [(e.id, e.start, e.end) for e in timeline.events] == [
@@ -165,7 +169,7 @@ def test_visual_scan_places_each_clips_detections_on_the_film_timeline(
 def test_scan_clips_are_not_left_on_disk(container: Container, source_file: Path) -> None:
     before = set(Path(tempfile.gettempdir()).glob("vd-scan-*"))
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions())
+    container.process(manifest, ProcessOptions(filter_categories=ALL_FILTERS))
     assert set(Path(tempfile.gettempdir()).glob("vd-scan-*")) == before
 
 
@@ -198,13 +202,14 @@ def test_stopped_scan_resumes_at_the_failed_clip_and_records_usage(
     container.providers.video_analyzer = analyzer
     manifest = container.store.create("local", "Long film", source_file)
 
+    options = ProcessOptions(filter_categories=ALL_FILTERS)
     with pytest.raises(StageFailedError):
-        container.process(manifest, ProcessOptions())
+        container.process(manifest, options)
     assert analyzer.succeeded == 1
     assert "limit used up" in (manifest.stages["visual_scan"].error or "")
 
     analyzer.heal()
-    container.process(manifest, ProcessOptions())
+    container.process(manifest, options)
     assert analyzer.succeeded == 2  # the first clip was not paid for again
 
     paths = container.store.paths(manifest)
@@ -212,3 +217,69 @@ def test_stopped_scan_resumes_at_the_failed_clip_and_records_usage(
     assert [e.id for e in timeline.events] == ["vis-0-0", "vis-600-0"]
     usage = read_model(paths.visual_usage, ScanUsage)
     assert (usage.clips, usage.input_tokens, usage.output_tokens) == (2, 200, 10)
+
+
+# --- optional subtitles and filters --------------------------------------------------------
+
+
+class ExplodingAnalyzer(FakeVideoAnalyzer):
+    def analyze_clip[T: BaseModel](self, clip_path: Path, instructions: str, schema: type[T]) -> T:
+        raise AssertionError("the picture must not be scanned when no filter is chosen")
+
+
+def test_with_nothing_chosen_the_run_finishes_with_no_scan_and_no_subtitles(
+    container: Container, source_file: Path
+) -> None:
+    container.providers.video_analyzer = ExplodingAnalyzer()
+    manifest = container.store.create("local", "Movie", source_file)
+
+    container.process(manifest, ProcessOptions())
+
+    paths = container.store.paths(manifest)
+    assert read_model(paths.visual_events, FilterTimeline).events == []
+    assert manifest.scanned_categories == []
+    assert manifest.subtitle_tracks == []
+    assert not paths.subtitles("en").exists()
+    assert all(r.status is StageStatus.DONE for r in manifest.stages.values())
+    # Swearing still comes from the words, with no choice needed.
+    timeline = read_model(paths.filters, FilterTimeline)
+    assert [e.category for e in timeline.events] == [FilterCategory.SWEARING]
+
+
+def test_an_unchanged_empty_run_is_skipped_the_second_time(
+    container: Container, source_file: Path
+) -> None:
+    manifest = container.store.create("local", "Movie", source_file)
+    container.process(manifest, ProcessOptions())
+
+    observer = RecordingObserver()
+    container.process(manifest, ProcessOptions(), observer)
+    assert observer.started == []
+    assert len(observer.skipped) == 6
+
+
+def test_choosing_filters_later_scans_and_rebuilds_only_what_depends_on_them(
+    container: Container, source_file: Path
+) -> None:
+    manifest = container.store.create("local", "Movie", source_file)
+    container.process(manifest, ProcessOptions())
+
+    observer = RecordingObserver()
+    container.process(manifest, ProcessOptions(filter_categories=ALL_FILTERS), observer)
+    assert observer.started == ["visual_scan", "build_filters"]
+    assert manifest.scanned_categories == ALL_FILTERS
+
+
+def test_the_manifest_remembers_what_was_asked_for(container: Container, source_file: Path) -> None:
+    manifest = container.store.create("local", "Movie", source_file)
+    container.process(
+        manifest,
+        ProcessOptions(
+            subtitle_languages=["en"],
+            filter_categories=[FilterCategory.VIOLENCE, FilterCategory.NUDITY],
+        ),
+    )
+    saved = container.store.get("local", manifest.title_id)
+    assert saved.choices is not None
+    assert saved.choices.subtitle_languages == ["en"]
+    assert saved.choices.filter_categories == [FilterCategory.NUDITY, FilterCategory.VIOLENCE]

@@ -1,21 +1,61 @@
-import { PIPELINE_STAGES, type TitleSummary } from '../api/types'
+import { PIPELINE_STAGES, type Choices, type JobState, type TitleSummary } from '../api/types'
+import { joinLabels } from './format'
+import { filterWords } from './filters'
 
-export interface TitleStatus {
-  ready: boolean
-  label: string
+export type CardStatus =
+  | { kind: 'ready' }
+  | { kind: 'working'; percent: number; step: string }
+  | { kind: 'failed'; stage: string }
+  | { kind: 'idle' }
+
+const ACTIVE = ['queued', 'running']
+
+export function isActive(job: JobState | null | undefined): boolean {
+  return !!job && ACTIVE.includes(job.status)
 }
 
-/** Plain description of how far along a title is. */
-export function titleStatus(title: TitleSummary): TitleStatus {
+/** Share of the pipeline finished, from the live job. Skipped steps count as done. */
+export function jobPercent(job: JobState): number {
+  const done = PIPELINE_STAGES.filter((s) => ['done', 'skipped'].includes(job.stages[s.id])).length
+  return Math.round((done / PIPELINE_STAGES.length) * 100)
+}
+
+/** The step running now, in plain words. */
+export function currentStep(job: JobState): string {
+  const running = PIPELINE_STAGES.find((s) => job.stages[s.id] === 'running')
+  return running ? running.label : 'Getting ready'
+}
+
+/** Lower-case stage name for "Stopped while translating." */
+function stageWords(label: string): string {
+  return label.charAt(0).toLowerCase() + label.slice(1)
+}
+
+/** Where a title stands: the live job when there is one, otherwise what the manifest recorded. */
+export function cardStatus(title: TitleSummary, job: JobState | null | undefined): CardStatus {
+  if (job && isActive(job)) {
+    return { kind: 'working', percent: jobPercent(job), step: currentStep(job) }
+  }
+  if (job?.status === 'failed') {
+    const failed = PIPELINE_STAGES.find((s) => job.stages[s.id] === 'failed')
+    return { kind: 'failed', stage: stageWords((failed ?? PIPELINE_STAGES[0]).label) }
+  }
   const states = PIPELINE_STAGES.map((s) => title.stages[s.id])
   const failedIndex = states.findIndex((s) => s === 'failed')
-  if (failedIndex >= 0) {
-    return { ready: false, label: `Stopped at “${PIPELINE_STAGES[failedIndex].label.toLowerCase()}”` }
-  }
-  const done = states.filter((s) => s === 'done').length
-  if (done === PIPELINE_STAGES.length) return { ready: true, label: 'Ready to watch' }
-  if (done === 0) return { ready: false, label: 'Not processed yet' }
-  return { ready: false, label: `Partly processed (${done} of ${PIPELINE_STAGES.length} steps)` }
+  if (failedIndex >= 0) return { kind: 'failed', stage: stageWords(PIPELINE_STAGES[failedIndex].label) }
+  if (states.every((s) => s === 'done')) return { kind: 'ready' }
+  return { kind: 'idle' }
+}
+
+/** "Skips nudity and sex scenes · Subtitles in English and Spanish". */
+export function choicesLine(choices: Choices | null): string {
+  const filters = choices?.filter_categories ?? []
+  const languages = choices?.subtitle_languages ?? []
+  const skips = filters.length ? `Skips ${joinLabels(filters.map(filterWords))}` : 'No filters'
+  const subs = languages.length
+    ? `Subtitles in ${joinLabels(languages.map(languageLabel))}`
+    : 'No subtitles'
+  return `${skips} · ${subs}`
 }
 
 export const LANGUAGES: { code: string; label: string }[] = [

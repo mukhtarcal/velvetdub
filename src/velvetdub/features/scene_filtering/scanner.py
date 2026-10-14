@@ -2,9 +2,13 @@
 
 Two ways to do it, chosen by which provider `MODERATION_PROVIDER` names:
 
-* `SceneScanner` hands the whole clip to a video model (Gemini) with the scene-filtering prompt.
+* `SceneScanner` hands the whole clip to a video model (Gemini) with a prompt built from the
+  categories you chose.
 * `FrameScanner` pulls a frame every second and has a frame judge (OpenAI Decisions) answer yes/no
-  questions about each few-second window, then merges the flagged seconds into scenes.
+  questions about each few-second window, then merges the flagged seconds into scenes. It only
+  asks about the chosen categories it knows (nudity and sexual content).
+
+Both scan only the categories they are built with.
 
 The stage cuts the clips and saves each result; a scanner only says how it wants its clips cut
 and what is in one.
@@ -19,13 +23,14 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from velvetdub.config.settings import Settings
-from velvetdub.domain.filtering import FilterEvent
+from velvetdub.domain.filtering import FilterCategory, FilterEvent
 from velvetdub.domain.frames import FrameJudgement
 from velvetdub.domain.usage import TokenUsage
+from velvetdub.features.scene_filtering.categories import in_scan_order
 from velvetdub.features.scene_filtering.detections import ClipResult, to_events
 from velvetdub.features.scene_filtering.frame_prompt import intro_for, questions_for
 from velvetdub.features.scene_filtering.frames import frame_events
-from velvetdub.features.scene_filtering.prompt import PROMPT
+from velvetdub.features.scene_filtering.prompt import build_prompt
 from velvetdub.media.tools import MediaTool
 from velvetdub.providers.base import FrameJudge, VideoAnalyzer
 
@@ -71,8 +76,9 @@ class Scanner(Protocol):
 class SceneScanner:
     """Video-model scanner (Gemini)."""
 
-    def __init__(self, analyzer: VideoAnalyzer) -> None:
+    def __init__(self, analyzer: VideoAnalyzer, categories: Sequence[FilterCategory]) -> None:
         self._analyzer = analyzer
+        self._categories = in_scan_order(categories)
 
     @property
     def identity(self) -> str:
@@ -89,20 +95,26 @@ class SceneScanner:
         return (
             f"{self.identity}|fps={settings.visual_sample_fps}"
             f"|clip={settings.scan_clip_seconds}|h={settings.scan_height}"
+            f"|categories={','.join(self._categories)}"
         )
 
     def scan_clip(self, clip_path: Path, *, offset: float, media: MediaTool) -> ClipScan:
-        result = self._analyzer.analyze_clip(clip_path, PROMPT, ClipResult)
-        events = to_events(result, offset=offset, source=self._analyzer.identity)
+        result = self._analyzer.analyze_clip(clip_path, build_prompt(self._categories), ClipResult)
+        events = to_events(
+            result, offset=offset, source=self._analyzer.identity, allowed=self._categories
+        )
         return ClipScan(events=events, usage=self._analyzer.last_usage)
 
 
 class FrameScanner:
     """Frame-by-frame scanner (OpenAI Decisions): nudity and sexual content only."""
 
-    def __init__(self, judge: FrameJudge, threshold: float) -> None:
+    def __init__(
+        self, judge: FrameJudge, threshold: float, categories: Sequence[FilterCategory]
+    ) -> None:
         self._judge = judge
         self._threshold = threshold
+        self._categories = in_scan_order(categories)
 
     @property
     def identity(self) -> str:
@@ -117,6 +129,7 @@ class FrameScanner:
         return (
             f"{self.identity}|frames|window={2 * WINDOW_RADIUS + 1}|threshold={self._threshold}"
             f"|clip={settings.scan_clip_seconds}|h={FRAME_HEIGHT}"
+            f"|categories={','.join(self._categories)}"
         )
 
     def scan_clip(self, clip_path: Path, *, offset: float, media: MediaTool) -> ClipScan:
@@ -142,7 +155,9 @@ class FrameScanner:
 
         def judge(second: int) -> FrameJudgement:
             shown = window(second)
-            return self._judge.judge(shown, intro_for(len(shown)), questions_for(len(shown)))
+            return self._judge.judge(
+                shown, intro_for(len(shown)), questions_for(len(shown), self._categories)
+            )
 
         pool = ThreadPoolExecutor(max_workers=PARALLEL_REQUESTS)
         try:

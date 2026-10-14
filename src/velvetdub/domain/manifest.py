@@ -5,6 +5,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from velvetdub.domain.filtering import FilterCategory
+
 
 class StageStatus(StrEnum):
     DONE = "done"
@@ -38,6 +40,13 @@ class SubtitleTrack(BaseModel):
     path: str
 
 
+class Choices(BaseModel):
+    """What was asked for when processing last started, for the library's "what you chose" line."""
+
+    filter_categories: list[FilterCategory] = Field(default_factory=list)
+    subtitle_languages: list[str] = Field(default_factory=list)
+
+
 def _now() -> datetime:
     return datetime.now(UTC)
 
@@ -53,6 +62,10 @@ class Manifest(BaseModel):
     stages: dict[str, StageRecord] = Field(default_factory=dict)
     audio_tracks: list[AudioTrack] = Field(default_factory=list)
     subtitle_tracks: list[SubtitleTrack] = Field(default_factory=list)
+    choices: Choices | None = None
+    # What the picture scan actually looked for (None until it has run). A detection list that is
+    # empty means "nothing found" only for these categories.
+    scanned_categories: list[FilterCategory] | None = None
 
     def upsert_audio_track(self, track: AudioTrack) -> None:
         self.audio_tracks = [t for t in self.audio_tracks if t.id != track.id] + [track]

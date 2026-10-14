@@ -1,34 +1,35 @@
-from fastapi import APIRouter, Query
-from pydantic import BaseModel
+from fastapi import APIRouter
+from pydantic import BaseModel, Field
 
 from velvetdub.api.deps import ContainerDep, CurrentUser
 from velvetdub.domain.overrides import Overrides
-from velvetdub.services.playback import PlaybackInfo, ProfileOut, ReviewInfo
+from velvetdub.services.playback import PlaybackInfo, ReviewInfo
 from velvetdub.storage.corrections import Correction, CorrectionKind
-from velvetdub.storage.profiles import DEFAULT_PROFILE_ID
 
 router = APIRouter(tags=["playback"])
 
-ProfileQuery = Query(default=DEFAULT_PROFILE_ID, max_length=64)
-
-
-@router.get("/profiles")
-def list_profiles(container: ContainerDep, user: CurrentUser) -> list[ProfileOut]:
-    return [ProfileOut(id=p.id, name=p.name) for p in container.profiles.list(user.id)]
-
 
 @router.get("/titles/{title_id}/playback")
-def playback(
-    title_id: str, container: ContainerDep, user: CurrentUser, profile: str = ProfileQuery
-) -> PlaybackInfo:
-    return container.playback.build(user.id, title_id, profile)
+def playback(title_id: str, container: ContainerDep, user: CurrentUser) -> PlaybackInfo:
+    return container.playback.build(user.id, title_id)
 
 
 @router.get("/titles/{title_id}/review")
-def review(
-    title_id: str, container: ContainerDep, user: CurrentUser, profile: str = ProfileQuery
-) -> ReviewInfo:
-    return container.playback.review(user.id, title_id, profile)
+def review(title_id: str, container: ContainerDep, user: CurrentUser) -> ReviewInfo:
+    return container.playback.review(user.id, title_id)
+
+
+class KeepRequest(BaseModel):
+    event_ids: list[str] = Field(max_length=5000)
+    keep: bool
+
+
+@router.put("/titles/{title_id}/keep")
+def keep_events(
+    title_id: str, body: KeepRequest, container: ContainerDep, user: CurrentUser
+) -> Overrides:
+    """Keep in (or filter again) many detections at once, such as a whole category."""
+    return container.overrides.keep_many(user.id, title_id, body.event_ids, keep=body.keep)
 
 
 @router.put("/titles/{title_id}/events/{event_id}/keep")

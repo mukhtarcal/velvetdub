@@ -1,24 +1,40 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { api } from '../api/client'
-import { PIPELINE_STAGES, type JobState } from '../api/types'
-import { LanguagePicker } from '../components/LanguagePicker'
+import { PIPELINE_STAGES, type JobState, type ProcessChoices, type TitleSummary } from '../api/types'
+import { Harbor } from '../components/Harbor'
+import { Stage } from '../components/Curtains'
 import { ErrorNote, PageHeader } from '../components/PageHeader'
+import { useAsync } from '../hooks/useAsync'
+import { formatDuration } from '../lib/format'
+import { cardStatus, isActive, jobPercent } from '../lib/titles'
 
-const POLL_MS = 1500
+export const POLL_MS = 1500
 const STAGE_WORD = { pending: 'Waiting', running: 'Working', done: 'Done', skipped: 'Already done', failed: 'Stopped' }
 
 export function ProcessPage() {
   const { titleId = '' } = useParams()
   const location = useLocation()
-  const autostart = (location.state as { autostart?: string[] } | null)?.autostart
+  const autostart = (location.state as { autostart?: ProcessChoices } | null)?.autostart
 
-  const [languages, setLanguages] = useState<string[]>(autostart ?? ['en'])
   const [job, setJob] = useState<JobState | null>(null)
+  const [title, setTitle] = useState<TitleSummary | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The curtains move only if you watch the change happen. A title that is already done when the
+  // page opens shows them open straight away.
+  const [watched, setWatched] = useState(false)
   const started = useRef(false)
 
-  async function start(chosen: string[]) {
+  function choicesToRetry(): ProcessChoices {
+    return (
+      autostart ?? {
+        subtitle_languages: title?.choices?.subtitle_languages ?? [],
+        filter_categories: (title?.choices?.filter_categories ?? []) as ProcessChoices['filter_categories'],
+      }
+    )
+  }
+
+  async function start(chosen: ProcessChoices) {
     setError(null)
     try {
       setJob(await api.process(titleId, chosen))
@@ -27,10 +43,13 @@ export function ProcessPage() {
     }
   }
 
+  const loadTitle = () => api.titleSummary(titleId).then(setTitle, () => undefined)
+
   // Coming from "Add a title": start straight away. Otherwise show a job already in progress.
   useEffect(() => {
     if (started.current) return
     started.current = true
+    void loadTitle()
     if (autostart) {
       void start(autostart)
     } else {
@@ -39,9 +58,10 @@ export function ProcessPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on arrival
   }, [titleId])
 
-  const active = job?.status === 'queued' || job?.status === 'running'
+  const active = isActive(job)
   useEffect(() => {
     if (!active) return
+    setWatched(true)
     const timer = window.setInterval(() => {
       api.progress(titleId).then(setJob, (e: unknown) => {
         setError(e instanceof Error ? e.message : 'Lost contact with the server.')
@@ -50,35 +70,39 @@ export function ProcessPage() {
     return () => window.clearInterval(timer)
   }, [active, titleId])
 
-  const doneCount = job
-    ? PIPELINE_STAGES.filter((s) => ['done', 'skipped'].includes(job.stages[s.id])).length
-    : 0
-  const percent = Math.round((doneCount / PIPELINE_STAGES.length) * 100)
+  // Once it finishes, fetch the title again for its name and what was scanned.
+  useEffect(() => {
+    if (job?.status === 'done') void loadTitle()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the job's status changes
+  }, [job?.status])
+
+  const alreadyDone = !job && !!title && cardStatus(title, null).kind === 'ready'
+  const done = job?.status === 'done' || alreadyDone
+  const failed = job?.status === 'failed'
+  const idle = !job && !!title && !alreadyDone && !autostart
+  const percent = job ? jobPercent(job) : 0
+
+  const review = useAsync(
+    () => (done ? api.review(titleId) : Promise.resolve(null)),
+    [done, titleId],
+  )
+  const found = review.data ? review.data.filters.filter((f) => !f.kept).length : 0
 
   return (
     <>
       <PageHeader
-        step="Add a title · step 2 of 2"
-        title={job?.status === 'done' ? 'All set' : 'The projector is warming up'}
+        step={`${title?.name ?? 'Your title'} · step 2 of 2`}
+        title={done ? 'All set' : 'The projector is warming up'}
+        live
       />
       {error && <ErrorNote message={error} />}
 
-      {!job && (
-        <div className="stack">
-          <div className="field">
-            Subtitle languages
-            <LanguagePicker value={languages} onChange={setLanguages} />
-          </div>
-          <div>
-            <button type="button" className="primary" onClick={() => void start(languages)}>
-              Start processing
-            </button>
-          </div>
-        </div>
-      )}
+      <Stage open={done} animate={watched}>
+        <Harbor beam />
+      </Stage>
 
-      {job && (
-        <div className="stack">
+      {job && !done && (
+        <div className="stack" style={{ gap: 16 }}>
           <div
             className="progress-bar"
             role="progressbar"
@@ -94,34 +118,68 @@ export function ProcessPage() {
               const state = job.stages[stage.id] ?? 'pending'
               return (
                 <li key={stage.id} data-state={state}>
-                  <span>{stage.label}</span>
-                  <span>{STAGE_WORD[state]}</span>
+                  <span className="label">{stage.label}</span>
+                  <span className="word">{STAGE_WORD[state]}</span>
                 </li>
               )
             })}
           </ul>
-
-          {job.status === 'failed' && (
+          {failed ? (
             <>
               <ErrorNote message={job.error ?? 'Processing stopped.'} />
               <div className="row-actions">
-                <button type="button" className="primary" onClick={() => void start(languages)}>
+                <button type="button" className="primary" onClick={() => void start(choicesToRetry())}>
                   Try again
                 </button>
                 <span className="meta">Finished steps are kept, so this picks up where it stopped.</span>
               </div>
             </>
+          ) : (
+            <p className="processing-note">
+              You can leave this page. The film keeps processing and shows up in your library when it is ready.
+            </p>
           )}
-          {job.status === 'done' && (
-            <div className="row-actions">
-              <Link to={`/titles/${titleId}/review`} className="button primary">
-                Review the cuts
-              </Link>
-              <Link to={`/titles/${titleId}/watch`} className="button secondary">
+        </div>
+      )}
+
+      {idle && (
+        <div className="stack">
+          <p className="lead">Nothing is processing for this title right now.</p>
+          <div>
+            <button type="button" className="primary" onClick={() => void start(choicesToRetry())}>
+              Try again
+            </button>
+          </div>
+        </div>
+      )}
+
+      {done && (review.data || review.error) && (
+        <div className="stack" style={{ gap: 20 }}>
+          <p className="lead">
+            {found === 0
+              ? 'We found nothing to skip.'
+              : `We found ${found} ${found === 1 ? 'moment' : 'moments'} to skip${
+                  review.data && review.data.runtime_removed > 0
+                    ? `, ${formatDuration(review.data.runtime_removed)} in all`
+                    : ''
+                }. Look them over before you watch. You can keep any of them in.`}
+          </p>
+          <div className="row-actions" style={{ gap: '12px 20px' }}>
+            {found === 0 ? (
+              <Link to={`/titles/${titleId}/watch`} className="button primary" style={{ minHeight: 48 }}>
                 Watch now
               </Link>
-            </div>
-          )}
+            ) : (
+              <>
+                <Link to={`/titles/${titleId}/review`} className="button primary" style={{ minHeight: 48 }}>
+                  Review the cuts
+                </Link>
+                <Link to={`/titles/${titleId}/watch`} className="button secondary" style={{ minHeight: 48 }}>
+                  Watch now
+                </Link>
+              </>
+            )}
+          </div>
         </div>
       )}
     </>

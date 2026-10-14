@@ -118,7 +118,7 @@ button.icon-button:hover {
   margin: 10px 0 0;
 }
 
-/* Seek bar: signal marks show every filtered moment. */
+/* Seek bar: a mark for every filtered moment, in its category colour (see App.css). */
 .seek {
   position: relative;
   height: var(--hit-target);
@@ -140,7 +140,7 @@ button.icon-button:hover {
   position: absolute;
   top: 0;
   height: 100%;
-  background: var(--signal);
+  background: var(--cat, var(--signal));
 }
 
 .seek input[type='range'] {

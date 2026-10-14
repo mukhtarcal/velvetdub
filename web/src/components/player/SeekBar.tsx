@@ -1,7 +1,8 @@
 import type { FilterItem } from '../../api/types'
-import { categoryLabel, formatTime } from '../../lib/format'
+import { categoryLabel, drawWorstLast, formatTime } from '../../lib/format'
 
-/** The seek bar, with every filtered moment marked in signal red. */
+/** The seek bar, with every filtered moment marked in the colour of its category. Where moments
+ * overlap, the worst one is drawn on top (nudity, then sex scenes, violence, scary scenes). */
 export function SeekBar({
   time,
   duration,
@@ -17,9 +18,10 @@ export function SeekBar({
     <div className="seek">
       <div className="seek-marks" aria-hidden="true">
         {duration > 0 &&
-          filters.map((f) => (
+          drawWorstLast(filters).map((f) => (
             <span
               key={f.id}
+              data-category={f.category}
               title={`${categoryLabel(f.category)} at ${formatTime(f.start)}`}
               style={{
                 left: `${(f.start / duration) * 100}%`,

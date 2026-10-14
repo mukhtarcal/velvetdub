@@ -44,10 +44,13 @@ describe('api client', () => {
 
   it('sends JSON bodies with the right content type', async () => {
     const fetchMock = stubFetch('{"stages":{}}', 202)
-    await api.process('t1', ['en', 'es'])
+    await api.process('t1', { subtitle_languages: ['en', 'es'], filter_categories: ['violence'] })
     const init = fetchMock.mock.calls.at(-1)?.[1] as RequestInit
     expect(init.method).toBe('POST')
-    expect(JSON.parse(init.body as string)).toEqual({ subtitle_languages: ['en', 'es'] })
+    expect(JSON.parse(init.body as string)).toEqual({
+      subtitle_languages: ['en', 'es'],
+      filter_categories: ['violence'],
+    })
     expect((init.headers as Headers).get('Content-Type')).toBe('application/json')
   })
 
@@ -58,7 +61,7 @@ describe('api client', () => {
 
   it('encodes path segments', async () => {
     const fetchMock = stubFetch('{}', 200)
-    await api.playback('a/b', 'x y')
-    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe('/api/titles/a%2Fb/playback?profile=x%20y')
+    await api.playback('a/b')
+    expect(fetchMock.mock.calls.at(-1)?.[0]).toBe('/api/titles/a%2Fb/playback')
   })
 })

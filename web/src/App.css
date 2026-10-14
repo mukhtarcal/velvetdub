@@ -1,65 +1,90 @@
 /* App shell, shared components. Tokens live in styles/tokens.css (docs/BRAND.md). */
 
 .shell {
-  display: grid;
-  grid-template-columns: 240px 1fr;
   min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Smooth velvet with one soft sheen, no stripes. */
-.sidebar {
-  background: linear-gradient(
-    90deg,
-    var(--velvet-deep) 0%,
-    var(--velvet) 18%,
-    var(--velvet) 82%,
-    var(--velvet-deep) 100%
-  );
-  color: var(--on-velvet);
-  padding: 28px 20px;
+/* Smooth velvet with one soft sheen, no stripes. The double gilt rule is one of gilt's few jobs. */
+.topbar {
+  background: linear-gradient(90deg, #4a0c12 0%, #6a121a 35%, #5e0f15 65%, #3a0a0f 100%);
+  border-bottom: 4px double var(--gilt);
+}
+
+.topbar-inner {
+  max-width: 1184px;
+  margin: 0 auto;
+  padding: 0 32px;
+  min-height: 76px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 32px;
 }
 
 .wordmark {
   font-family: var(--font-display);
-  font-size: 29px;
+  font-size: 30px;
+  line-height: 40px;
   color: var(--ink);
+  text-decoration: none;
+  padding: 16px 0;
 }
 
-/* The double rule under the wordmark is one of gilt's few jobs. */
-.gilt-rule {
-  height: 5px;
-  margin: 12px 0 24px;
-  border-top: 1px solid var(--gilt);
-  border-bottom: 1px solid var(--gilt);
+.topbar nav {
+  display: flex;
+  gap: 4px;
 }
 
-.sidebar ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.sidebar a {
+.topbar nav a {
   min-height: var(--hit-target);
   display: flex;
   align-items: center;
-  padding: 0 12px;
+  padding: 0 18px;
   color: var(--on-velvet);
   text-decoration: none;
 }
 
-.sidebar a.active {
-  background: var(--velvet-deep);
+.topbar nav a.active {
+  background: var(--velvet-shadow);
   color: var(--ink);
 }
 
-.content {
-  padding: 40px 48px 80px;
-  max-width: 1100px;
+.page {
+  width: 100%;
+  max-width: 1184px;
+  margin: 0 auto;
+  padding: 56px 32px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
 }
 
-.page-header h1 {
-  margin: 8px 0 20px;
+.page-header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid var(--line);
+}
+
+.page-header.bare {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.page-header .hairline {
+  display: none;
+}
+
+.page-header-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
 }
 
 .hairline {
@@ -71,6 +96,7 @@
 /* ---- controls --------------------------------------------------------------------- */
 
 a.button,
+label.button,
 button.primary,
 button.secondary {
   display: inline-flex;
@@ -93,6 +119,7 @@ button.primary {
 }
 
 a.button.secondary,
+label.button.secondary,
 button.secondary {
   background: transparent;
   color: var(--ink);
@@ -204,28 +231,7 @@ button.chip[aria-pressed='true'] {
   font-variant-numeric: tabular-nums;
 }
 
-/* ---- library ---------------------------------------------------------------------- */
-
-.title-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  padding: 16px 0;
-  border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
-}
-
-.title-row .name {
-  font-size: 18px;
-  color: var(--ink);
-}
+/* ---- library: see the cards below */
 
 /* ---- progress --------------------------------------------------------------------- */
 
@@ -233,35 +239,49 @@ button.chip[aria-pressed='true'] {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0 32px;
 }
 
 .stage-list li {
   display: flex;
   justify-content: space-between;
+  gap: 12px;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
+  font-size: 14.5px;
+  line-height: 22px;
+}
+
+.stage-list li .label {
   color: var(--muted);
 }
 
-/* Processing progress is one of signal's jobs. */
-.stage-list li[data-state='running'] {
-  color: var(--signal);
-}
-
-.stage-list li[data-state='done'],
-.stage-list li[data-state='skipped'] {
+.stage-list li[data-state='running'] .label,
+.stage-list li[data-state='done'] .label,
+.stage-list li[data-state='skipped'] .label {
   color: var(--ink);
 }
 
-.stage-list li[data-state='failed'] {
+/* Processing progress is one of signal's jobs. */
+.stage-list li .word {
+  color: var(--faint);
+}
+
+.stage-list li[data-state='running'] .word,
+.stage-list li[data-state='failed'] .word {
   color: var(--signal);
-  font-weight: 600;
+}
+
+.stage-list li[data-state='done'] .word,
+.stage-list li[data-state='skipped'] .word {
+  color: var(--ink-soft);
 }
 
 .progress-bar {
-  height: 8px;
+  height: 6px;
   background: var(--track);
-  border: 1px solid var(--line);
 }
 
 .progress-bar > div {
@@ -269,19 +289,12 @@ button.chip[aria-pressed='true'] {
   background: var(--signal);
 }
 
-.drop-zone {
-  background: var(--surface-deep);
-  border: 1px dashed var(--border-strong);
-  padding: 32px;
-  text-align: center;
-}
-
 @media (max-width: 720px) {
-  .shell {
-    grid-template-columns: 1fr;
+  .page {
+    padding: 32px 16px 60px;
   }
-  .content {
-    padding: 24px 16px 60px;
+  .topbar-inner {
+    padding: 0 16px;
   }
 }
 
@@ -328,17 +341,121 @@ button.chip[aria-pressed='true'] {
   position: absolute;
 }
 
+/* One colour per kind of moment, shared by the review timeline and the player's seek bar. */
+[data-category] {
+  --cat: var(--signal);
+}
+[data-category='nudity'] {
+  --cat: var(--cat-nudity);
+}
+[data-category='sexual_content'] {
+  --cat: var(--cat-sexual-content);
+}
+[data-category='swearing'],
+[data-category='blasphemy'] {
+  --cat: var(--cat-swearing);
+}
+[data-category='violence'] {
+  --cat: var(--cat-violence);
+}
+[data-category='scary_scenes'] {
+  --cat: var(--cat-scary-scenes);
+}
+[data-category='drugs_and_drinking'] {
+  --cat: var(--cat-drugs);
+}
+
+.lane-label {
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.lane-track {
+  position: relative;
+  height: 24px;
+  background: var(--track);
+  border: 1px solid var(--line);
+}
+
+.lane.axis .lane-track {
+  background: none;
+  border: 0;
+  height: 20px;
+  color: var(--faint);
+  font-size: 13px;
+}
+
+.lane.axis .lane-track span {
+  position: absolute;
+}
+
+.lane {
+  --cat: var(--signal);
+}
+
+.lane[data-category='nudity'] {
+  --cat: var(--cat-nudity);
+}
+.lane[data-category='sexual_content'] {
+  --cat: var(--cat-sexual-content);
+}
+.lane[data-category='swearing'],
+.lane[data-category='blasphemy'] {
+  --cat: var(--cat-swearing);
+}
+.lane[data-category='violence'] {
+  --cat: var(--cat-violence);
+}
+.lane[data-category='scary_scenes'] {
+  --cat: var(--cat-scary-scenes);
+}
+.lane[data-category='drugs_and_drinking'] {
+  --cat: var(--cat-drugs);
+}
+
+.lane-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lane-label .swatch {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  background: var(--cat);
+}
+
 .lane-track .block {
   position: absolute;
   top: 2px;
   bottom: 2px;
-  background: var(--signal);
+  background: var(--cat);
 }
 
 /* Kept-in moments are outlined, not filled, so the state isn't carried by color alone. */
 .lane-track .block[data-kept='true'] {
   background: transparent;
-  border: 1px dashed var(--faint);
+  border: 1px dashed var(--cat);
+}
+
+.group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 8px;
+}
+
+.group-head h3 {
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.tab-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 table.events,
@@ -370,4 +487,552 @@ table.events tr[data-kept='true'] td {
 
 table.script textarea {
   width: 100%;
+}
+
+/* ---- add a title ------------------------------------------------------------------ */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section h2 {
+  line-height: 36px;
+}
+
+.section-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px 24px;
+}
+
+.upload-zone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  background: var(--surface-deep);
+  border: 1px dashed var(--border-control);
+}
+
+.upload-zone .what {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* The filter panel's red rule is velvet: signal is reserved for a filter that is acting. */
+.filter-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 28px 32px;
+  background: var(--surface-deep);
+  border-top: 4px solid var(--velvet);
+}
+
+.filter-panel h2 {
+  color: var(--signal);
+}
+
+.subtitle-box {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 28px 32px;
+  border: 1px solid var(--line);
+}
+
+.filter-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 12px;
+}
+
+button.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  text-align: left;
+  padding: 18px;
+  color: var(--ink);
+  background: transparent;
+  border: 2px solid var(--line);
+  border-radius: var(--radius-control);
+}
+
+button.tile[aria-pressed='true'] {
+  background: var(--panel);
+  border-color: var(--velvet);
+}
+
+button.tile:disabled {
+  opacity: 1;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
+button.tile:disabled .tile-name,
+button.tile:disabled .tile-hint {
+  color: var(--faint);
+}
+
+.tile-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tile-name {
+  font-size: 18px;
+  line-height: 26px;
+}
+
+.tile-box {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  flex: none;
+  background: var(--panel);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+}
+
+button.tile[aria-pressed='true'] .tile-box {
+  background: var(--velvet);
+  border-color: var(--velvet);
+}
+
+.tile-hint {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 22px;
+}
+
+.tile-state {
+  font-size: 14.5px;
+  line-height: 22px;
+  color: var(--faint);
+}
+
+button.tile[aria-pressed='true'] .tile-state {
+  color: var(--ink);
+}
+
+.segmented {
+  display: inline-flex;
+  align-self: flex-start;
+  background: var(--panel);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-control);
+}
+
+.segmented button {
+  padding: 0 20px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+
+.segmented button[aria-checked='true'] {
+  background: var(--velvet);
+  color: var(--ink);
+}
+
+button.chip {
+  padding: 0 18px;
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 24px;
+  margin: 0;
+}
+
+.summary dt {
+  color: var(--muted);
+}
+
+.summary dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.submit-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 32px;
+  border-top: 1px solid var(--line);
+}
+
+button.primary:disabled {
+  background: var(--velvet-deep);
+  border-color: var(--velvet-deep);
+  color: var(--muted);
+  opacity: 1;
+}
+
+/* ---- curtains and stage ----------------------------------------------------------- */
+
+.curtains,
+.stage {
+  --folds: var(--velvet-shadow) 0%, var(--velvet-mid) 6%, var(--velvet) 11%, var(--velvet-deep) 18%,
+    var(--velvet-mid) 25%, var(--velvet-sheen) 29%, var(--velvet) 33%, var(--velvet-deep) 43%,
+    var(--velvet-mid) 50%, var(--velvet-shadow) 57%, var(--velvet) 64%, var(--velvet-mid) 75%,
+    var(--velvet-deep) 83%, var(--velvet) 91%, var(--velvet-deep) 100%;
+  --shade: linear-gradient(
+    180deg,
+    rgba(7, 5, 5, 0.6) 0%,
+    rgba(7, 5, 5, 0) 20%,
+    rgba(7, 5, 5, 0) 78%,
+    rgba(7, 5, 5, 0.65) 100%
+  );
+}
+
+.stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: var(--stage-black);
+  overflow: hidden;
+}
+
+.stage-picture {
+  position: absolute;
+  left: 9%;
+  right: 9%;
+  top: 15%;
+  bottom: 5%;
+}
+
+.harbor {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.curtains {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Shut, each panel is a plain rectangle written with the same nine points as the open shape, so
+ * the browser can animate between them. */
+.drape {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 1;
+  width: 50.5%;
+  clip-path: polygon(0 0, 100% 0, 100% 22%, 100% 44%, 100% 60%, 100% 74%, 100% 90%, 100% 100%, 0 100%);
+}
+
+.drape.left {
+  left: 0;
+  background: var(--shade), linear-gradient(90deg, var(--folds));
+}
+
+.drape.right {
+  right: 0;
+  background: var(--shade), linear-gradient(270deg, var(--folds));
+  clip-path: polygon(100% 0, 0 0, 0 22%, 0 44%, 0 60%, 0 74%, 0 90%, 0 100%, 100% 100%);
+}
+
+/* Drawn back: the inner edge curves in to a tie-back about 60% down, then flares to the floor. */
+.curtains[data-open='true'] .drape {
+  width: 17%;
+}
+
+.curtains[data-open='true'] .drape.left {
+  clip-path: polygon(0 0, 100% 0, 92% 22%, 72% 44%, 48% 60%, 64% 74%, 88% 90%, 100% 100%, 0 100%);
+}
+
+.curtains[data-open='true'] .drape.right {
+  clip-path: polygon(100% 0, 0 0, 8% 22%, 28% 44%, 52% 60%, 36% 74%, 12% 90%, 0 100%, 100% 100%);
+}
+
+.curtains[data-animate='true'] .drape {
+  transition:
+    width 2.8s cubic-bezier(0.65, 0, 0.25, 1),
+    clip-path 2.8s cubic-bezier(0.65, 0, 0.25, 1);
+}
+
+.tie {
+  position: absolute;
+  z-index: 2;
+  opacity: 0;
+}
+
+.curtains[data-open='true'] .tie {
+  opacity: 1;
+}
+
+/* The tie-backs fade in once the curtains are nearly open, and vanish at once if they close. */
+.curtains[data-open='true'][data-animate='true'] .tie {
+  transition: opacity 0.6s ease 2.4s;
+}
+
+.tie.cord {
+  top: 60%;
+  height: 3px;
+  width: 9%;
+  background: var(--gilt);
+}
+
+.tie.tassel {
+  top: calc(60% + 2px);
+  width: 7px;
+  height: 22px;
+  background: var(--fringe);
+}
+
+.tie.left {
+  left: 0;
+}
+
+.tie.tassel.left {
+  left: 9%;
+}
+
+.tie.right {
+  right: 0;
+}
+
+.tie.tassel.right {
+  right: 9%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .curtains .drape,
+  .curtains .tie {
+    transition: none !important;
+  }
+}
+
+.valance {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 3;
+}
+
+.valance .pelmet {
+  height: 26px;
+  background: var(--velvet-shadow);
+  border-top: 1px solid var(--gilt);
+  border-bottom: 3px solid var(--gilt);
+}
+
+.valance svg {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+
+/* ---- processing ------------------------------------------------------------------- */
+
+.processing-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 14.5px;
+}
+
+.lead {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 29px;
+}
+
+/* ---- library ---------------------------------------------------------------------- */
+
+.title-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 40px 28px;
+}
+
+.title-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* A poster frame: a thin brass line is one of brass's jobs. */
+.poster {
+  position: relative;
+  border: 1px solid var(--brass);
+  padding: 6px;
+  background: var(--stage-black);
+}
+
+.poster .harbor {
+  height: auto;
+}
+
+.poster-curtains {
+  position: absolute;
+  inset: 6px;
+  overflow: hidden;
+}
+
+.poster-valance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 10px;
+  z-index: 3;
+  background: var(--velvet-shadow);
+  border-bottom: 2px solid var(--gilt);
+}
+
+.title-card .name {
+  font-size: 18px;
+  line-height: 26px;
+  color: var(--ink);
+}
+
+.title-card .info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.title-card .status-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14.5px;
+  line-height: 22px;
+}
+
+a.text {
+  display: inline-flex;
+  align-items: center;
+}
+
+.page-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+label.button:focus-within {
+  outline: 2px solid var(--brass);
+  outline-offset: 2px;
+}
+
+/* ---- tabs ------------------------------------------------------------------------- */
+
+.tablist {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.tablist button {
+  padding: 0 18px;
+  color: var(--ink-soft);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+}
+
+/* The chosen tab fills velvet, like the other chosen options; the underline keeps it clear
+ * without relying on colour alone. */
+.tablist button[aria-selected='true'] {
+  background: var(--velvet);
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.tabs.inner .tablist {
+  margin-bottom: 4px;
+}
+
+.tabs.inner .tablist button {
+  font-size: 14.5px;
+}
+
+.tabs.inner .tablist button[aria-selected='true'] {
+  background: var(--panel);
+  border-bottom-color: var(--velvet);
+}
+
+.tabpanel {
+  padding-top: 20px;
+}
+
+.tab-count {
+  color: inherit;
+  opacity: 0.85;
+}
+
+/* ---- severity groups ---------------------------------------------------------------- */
+
+.severity-group {
+  border: 1px solid var(--line);
+  padding: 8px 16px;
+}
+
+.severity-group .group-head {
+  margin-bottom: 0;
+}
+
+.group-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  color: var(--ink);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 30px;
+}
+
+.group-toggle .meta {
+  font-family: var(--font-body);
+  font-size: 14.5px;
+}
+
+.chevron {
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--ink);
+  border-bottom: 2px solid var(--ink);
+  transform: rotate(-45deg);
+}
+
+.group-toggle[aria-expanded='true'] .chevron {
+  transform: rotate(45deg);
+}
+
+.severity-group [hidden] {
+  display: none;
+}
+
+.severity-group table {
+  margin: 12px 0 8px;
 }

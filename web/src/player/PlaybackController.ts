@@ -90,7 +90,7 @@ export class PlaybackController {
     this.frame = null
   }
 
-  /** Swap in new filters (a different profile, or "Keep it in" was used). */
+  /** Swap in new filters ("Keep it in" was used). */
   setEngine(engine: FilterEngine): void {
     this.engine = engine
     this.tick()

@@ -1,6 +1,6 @@
 import re
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 
@@ -18,17 +18,15 @@ def get_subtitles(
     filename: str,
     container: ContainerDep,
     user: CurrentUser,
-    profile: str | None = Query(default=None, max_length=64),
+    mask: bool = False,
     download: bool = False,
 ) -> PlainTextResponse:
-    """Subtitles as VTT or SRT. With `profile`, words that profile mutes are masked (*****)."""
+    """Subtitles as VTT or SRT. With `mask`, words that are filtered are masked (*****)."""
     match = _FILE.match(filename)
     if match is None:
         raise HTTPException(status_code=404, detail="Subtitle file not found")
     fmt: SubtitleFormat = "srt" if match["fmt"] == "srt" else "vtt"
-    body = container.subtitles.render(
-        user.id, title_id, match["language"], profile_id=profile, fmt=fmt
-    )
+    body = container.subtitles.render(user.id, title_id, match["language"], mask=mask, fmt=fmt)
     headers = {}
     if download:
         headers["Content-Disposition"] = f'attachment; filename="{match["language"]}.{fmt}"'

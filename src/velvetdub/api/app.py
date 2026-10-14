@@ -15,13 +15,11 @@ from velvetdub.errors import (
     VelvetDubError,
 )
 from velvetdub.services.subtitles import SubtitleNotFoundError
-from velvetdub.storage.profiles import ProfileNotFoundError
 from velvetdub.subtitles.formats import SubtitleParseError
 
 # Domain errors -> HTTP status. Anything not listed is a genuine bug and stays a 500.
 STATUS_FOR_ERROR: dict[type[VelvetDubError], int] = {
     TitleNotFoundError: 404,
-    ProfileNotFoundError: 404,
     SubtitleNotFoundError: 404,
     InvalidNameError: 422,
     SubtitleParseError: 422,

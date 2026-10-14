@@ -34,7 +34,7 @@ export interface EngineOptions {
 /**
  * Turns the already-resolved filters for one viewer into per-moment decisions.
  *
- * It does no policy: the server decided which detections matter for this profile. The engine
+ * It does no policy: the server decided which detections matter. The engine
  * only answers "what should happen at time t?" and is independent of any video element.
  */
 export class FilterEngine {

@@ -15,8 +15,9 @@ from velvetdub.domain.filtering import FilterCategory, FilterTimeline, Severity
 from velvetdub.domain.frames import FrameJudgement, FrameQuestion
 from velvetdub.domain.usage import TokenUsage
 from velvetdub.errors import ProviderError, QuotaExceededError, UnknownProviderError
-from velvetdub.features.scene_filtering.factory import build_scene_scanner
-from velvetdub.features.scene_filtering.frame_prompt import NUDITY, SEXUAL
+from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
+from velvetdub.features.scene_filtering.factory import build_scene_scanner, scannable_categories
+from velvetdub.features.scene_filtering.frame_prompt import NUDITY, SEXUAL, questions_for
 from velvetdub.features.scene_filtering.frames import frame_events
 from velvetdub.features.scene_filtering.scanner import FrameScanner, SceneScanner
 from velvetdub.pipeline.context import ProcessOptions
@@ -99,8 +100,11 @@ class StubJudge(FrameJudge):
         )
 
 
+FRAME_CHOICES = [FilterCategory.NUDITY, FilterCategory.SEXUAL_CONTENT]
+
+
 def scan(judge: FrameJudge, threshold: float = 0.5, offset: float = 600):  # type: ignore[no-untyped-def]
-    return FrameScanner(judge, threshold).scan_clip(
+    return FrameScanner(judge, threshold, FRAME_CHOICES).scan_clip(
         Path("clip.mp4"), offset=offset, media=FakeMediaTool()
     )
 
@@ -129,34 +133,57 @@ def test_a_failure_stops_the_scan_and_surfaces() -> None:
 
 
 def test_frame_clips_are_cut_sharper_than_video_clips(settings: Settings) -> None:
-    frames = FrameScanner(StubJudge(), 0.5).clip_spec(settings)
-    video = SceneScanner(object()).clip_spec(settings)  # type: ignore[arg-type]
+    frames = FrameScanner(StubJudge(), 0.5, FRAME_CHOICES).clip_spec(settings)
+    video = SceneScanner(object(), []).clip_spec(settings)  # type: ignore[arg-type]
     assert (frames.height, frames.fps, frames.crf) == (720, 1.0, 20)
     assert video.height == settings.scan_height
     assert video.crf == 30
 
 
 def test_the_scan_key_changes_with_the_threshold(settings: Settings) -> None:
-    low = FrameScanner(StubJudge(), 0.1).config_key(settings)
-    assert low != FrameScanner(StubJudge(), 0.5).config_key(settings)
+    low = FrameScanner(StubJudge(), 0.1, FRAME_CHOICES).config_key(settings)
+    assert low != FrameScanner(StubJudge(), 0.5, FRAME_CHOICES).config_key(settings)
+
+
+def test_the_scan_key_changes_with_the_chosen_categories_too(settings: Settings) -> None:
+    both = FrameScanner(StubJudge(), 0.5, FRAME_CHOICES).config_key(settings)
+    only = FrameScanner(StubJudge(), 0.5, [FilterCategory.NUDITY]).config_key(settings)
+    assert both != only
+
+
+def test_only_the_chosen_categories_are_asked_about() -> None:
+    names = [q.name for q in questions_for(3, [FilterCategory.NUDITY])]
+    assert names == [NUDITY]
+    names = [
+        q.name for q in questions_for(1, [FilterCategory.SEXUAL_CONTENT, FilterCategory.VIOLENCE])
+    ]
+    assert names == [SEXUAL]  # the frame judge has no question for violence
+
+
+def test_a_scan_asks_the_judge_nothing_about_unchosen_categories() -> None:
+    judge = StubJudge(flag_frame="f_00011.jpg")
+    result = FrameScanner(judge, 0.5, [FilterCategory.NUDITY]).scan_clip(
+        Path("clip.mp4"), offset=0, media=FakeMediaTool()
+    )
+    assert {e.category for e in result.events} == {FilterCategory.NUDITY}
 
 
 # --- choosing the scanner ------------------------------------------------------------------
 
 
 def test_the_provider_name_picks_the_scanner(settings: Settings) -> None:
-    video = build_scene_scanner(ProviderSet(settings), settings)
+    video = build_scene_scanner(ProviderSet(settings), settings, [])
     assert isinstance(video, SceneScanner)
     frames_settings = settings.model_copy(update={"moderation_provider": "fake-frames"})
     assert isinstance(
-        build_scene_scanner(ProviderSet(frames_settings), frames_settings), FrameScanner
+        build_scene_scanner(ProviderSet(frames_settings), frames_settings, []), FrameScanner
     )
 
 
 def test_an_unknown_provider_lists_both_kinds(settings: Settings) -> None:
     bad = settings.model_copy(update={"moderation_provider": "nope"})
     with pytest.raises(UnknownProviderError, match=r"gemini.*openai"):
-        build_scene_scanner(ProviderSet(bad), bad)
+        build_scene_scanner(ProviderSet(bad), bad, [])
 
 
 def test_the_whole_pipeline_runs_with_the_frame_scanner(
@@ -165,9 +192,15 @@ def test_the_whole_pipeline_runs_with_the_frame_scanner(
     frames_settings = settings.model_copy(update={"moderation_provider": "fake-frames"})
     container = build_container(frames_settings, media=FakeMediaTool())
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions())
+    container.process(manifest, ProcessOptions(filter_categories=FRAME_CHOICES))
     timeline = read_model(container.store.paths(manifest).visual_events, FilterTimeline)
     assert {e.category.value for e in timeline.events} == {"nudity", "sexual_content"}
+
+
+def test_what_each_scanner_can_check_is_known_without_any_key(settings: Settings) -> None:
+    assert scannable_categories(settings) == PICTURE_CATEGORIES
+    frames_settings = settings.model_copy(update={"moderation_provider": "openai"})
+    assert scannable_categories(frames_settings) == tuple(FRAME_CHOICES)
 
 
 # --- the OpenAI connection -----------------------------------------------------------------

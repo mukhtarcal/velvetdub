@@ -29,7 +29,7 @@ Dark only. No light theme.
 | ink-soft | #DCCFC4 | Long paragraphs, supporting copy |
 | muted | #B3A398 | Labels, metadata, timestamps |
 | faint | #93847B | Off states, axis ticks. Lowest grey allowed for text |
-| velvet | #9B1B24 | Primary buttons (ivory text), selected preset, featured ticket, red top rules on panels |
+| velvet | #9B1B24 | Primary buttons (ivory text), featured ticket, red top rules on panels |
 | velvet-deep | #5E0F15 | Fold shadows, back-row seats, sidebar dark edge |
 | velvet-mid | #8A1820 | Drape folds, swags, front-row seats |
 | velvet-sheen | #B8383F | Single soft drape highlight. Never a flat fill |
@@ -98,12 +98,12 @@ Use "you" / "your family". Avoid: "users", "content", "seamless", "unlock", "AI-
 
 ## Layout and components
 - **Corners square**, except controls (2px radius). No rounded cards, pill buttons, drop shadows, gradient washes, emoji.
-- **App:** velvet sidebar (Limelight wordmark over gilt double rule; nav in `on-velvet`; current page on a darker inset). Page = brass step line → Limelight screen title → sections split by hairlines. Sidebar items: Library, Add a title, Profiles, Settings.
+- **App:** slim velvet top bar (Limelight wordmark, gilt double rule along its lower edge; nav in `on-velvet` on the right; current page on a `velvet-shadow` inset). Page = brass step line → Limelight screen title → sections split by hairlines. Nav items today: Add a title, Library (Settings joins when it exists). See `docs/design/add-title-redesign/`, which replaced the sidebar.
 - **Player:** title bar above the stage, valance over the screen, curtains at the sides, controls below a velvet rule.
 - **Landing (later/optional for a private tool):** marquee sign, full-width stage, "Same film, your cut," Rows A–C, tickets, velvet-ruled footer.
 - **Buttons:** primary = velvet fill, ivory text, **one per screen**. Secondary = `border-strong` outline. Text actions = underlined ivory.
 - **Inputs / segmented controls:** `panel` fill, `border-control` edge, label above in `muted`. Chosen option fills `velvet`.
-- **Filter timeline:** labeled lanes (e.g. Language, Sexual content, Violence, Scary scenes); each filtered moment is a `signal` block sized to its length. Panel uses `surface-deep` with a velvet top rule.
+- **Filter timeline:** labeled lanes (e.g. Language, Sexual content, Violence, Scary scenes); each filtered moment is a block sized to its length. On the Review page each kind has its own colour, and every lane is named in words too: nudity `signal` red (#E5484F), sex scenes yellow (#E8C14A), swearing blue (#4DA3E0), violence orange (#E8853A), scary scenes violet (#A58AE0), drugs and drinking green (#6CC08B). This is a deliberate exception to "no third accent colour", for this one chart (`--cat-*` in tokens.css). Panel uses `surface-deep` with a velvet top rule.
 - **Skip notice:** "Skipped 42 s" in `signal`, then the category, then two text actions ("What happened?", "Keep it in").
 - **Subtitles:** ivory with soft shadow; second language in `subtitle-second`. Filtered words render as `*****`.
 

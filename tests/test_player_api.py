@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from velvetdub.api.app import create_app
 from velvetdub.container import Container
 from velvetdub.domain.manifest import Manifest
+from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.pipeline.context import ProcessOptions
 
 CLIENT = {"x-velvetdub-client": "test"}
@@ -15,7 +16,10 @@ CLIENT = {"x-velvetdub-client": "test"}
 @pytest.fixture
 def processed(container: Container, source_file: Path) -> Manifest:
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions(subtitle_languages=["en", "es"]))
+    container.process(
+        manifest,
+        ProcessOptions(subtitle_languages=["en", "es"], filter_categories=list(PICTURE_CATEGORIES)),
+    )
     return manifest
 
 
@@ -80,25 +84,22 @@ def test_other_users_media_is_not_found(container: Container, processed: Manifes
 # --- playback ----------------------------------------------------------------------------
 
 
-def test_playback_resolves_filters_for_the_profile(client: TestClient, processed: Manifest) -> None:
-    kids = client.get(f"{base(processed)}/playback", params={"profile": "kids"}).json()
-    assert kids["profile"] == {"id": "kids", "name": "Kids (G)"}
-    assert {f["category"] for f in kids["filters"]} == {"swearing", "violence"}
-    assert {f["action"] for f in kids["filters"]} == {"mute", "skip"}
-    assert kids["runtime_removed"] == 12.0  # the fake scan's 10 s, plus a second each side
-    assert [t["id"] for t in kids["audio_tracks"]] == ["original"]
-    assert {t["language"] for t in kids["subtitle_tracks"]} == {"en", "es"}
-    assert kids["duration"] == 60.0
-
-    # "language only" never skips scenes, and "family" ignores mild swearing
-    lang = client.get(f"{base(processed)}/playback", params={"profile": "language_only"}).json()
-    assert {f["action"] for f in lang["filters"]} == {"mute"}
-    family = client.get(f"{base(processed)}/playback", params={"profile": "family"}).json()
-    assert {f["category"] for f in family["filters"]} == {"violence"}
+def test_playback_acts_on_everything_that_was_found(
+    client: TestClient, processed: Manifest
+) -> None:
+    info = client.get(f"{base(processed)}/playback").json()
+    assert "profile" not in info
+    assert {f["category"] for f in info["filters"]} == {"swearing", "violence"}
+    assert {f["action"] for f in info["filters"]} == {"mute", "skip"}
+    assert info["runtime_removed"] == 12.0  # the fake scan's 10 s, plus a second each side
+    assert [t["id"] for t in info["audio_tracks"]] == ["original"]
+    assert {t["language"] for t in info["subtitle_tracks"]} == {"en", "es"}
+    assert all(t["url"].endswith("?mask=true") for t in info["subtitle_tracks"])
+    assert info["duration"] == 60.0
 
 
-def test_unknown_profile_is_404(client: TestClient, processed: Manifest) -> None:
-    assert client.get(f"{base(processed)}/playback", params={"profile": "nope"}).status_code == 404
+def test_profiles_are_gone(client: TestClient, processed: Manifest) -> None:
+    assert client.get("/api/profiles").status_code == 404
 
 
 def test_unprocessed_title_plays_with_no_filters(
@@ -109,21 +110,15 @@ def test_unprocessed_title_plays_with_no_filters(
     assert info["filters"] == [] and info["subtitle_tracks"] == []
 
 
-def test_profiles_list(client: TestClient) -> None:
-    names = [p["name"] for p in client.get("/api/profiles").json()]
-    assert names == ["Kids (G)", "Family (PG)", "Teen", "Language only"]
-
-
 # --- keep it in / review -----------------------------------------------------------------
 
 
 def test_keeping_a_detection_in_removes_it_from_playback_but_not_review(
     client: TestClient, processed: Manifest
 ) -> None:
-    kids = {"profile": "kids"}
     skip = next(
         f
-        for f in client.get(f"{base(processed)}/playback", params=kids).json()["filters"]
+        for f in client.get(f"{base(processed)}/playback").json()["filters"]
         if f["action"] == "skip"
     )
 
@@ -131,34 +126,57 @@ def test_keeping_a_detection_in_removes_it_from_playback_but_not_review(
         "keep": [skip["id"]]
     }
 
-    playback = client.get(f"{base(processed)}/playback", params=kids).json()
+    playback = client.get(f"{base(processed)}/playback").json()
     assert skip["id"] not in [f["id"] for f in playback["filters"]]
     assert playback["runtime_removed"] == 0.0
 
-    review = client.get(f"{base(processed)}/review", params=kids).json()
+    review = client.get(f"{base(processed)}/review").json()
     row = next(f for f in review["filters"] if f["id"] == skip["id"])
     assert row["kept"] is True
     assert review["runtime_removed"] == 0.0
 
     client.delete(f"{base(processed)}/events/{skip['id']}/keep")
-    again = client.get(f"{base(processed)}/playback", params=kids).json()
+    again = client.get(f"{base(processed)}/playback").json()
     assert skip["id"] in [f["id"] for f in again["filters"]]
 
 
 # --- subtitles ---------------------------------------------------------------------------
 
 
-def test_subtitles_are_masked_per_profile(client: TestClient, processed: Manifest) -> None:
+def test_keeping_in_many_at_once_and_filtering_them_again(
+    client: TestClient, processed: Manifest
+) -> None:
+    ids = [f["id"] for f in client.get(f"{base(processed)}/playback").json()["filters"]]
+    assert len(ids) == 2
+
+    kept = client.put(f"{base(processed)}/keep", json={"event_ids": ids, "keep": True}).json()
+    assert sorted(kept["keep"]) == sorted(ids)
+    assert client.get(f"{base(processed)}/playback").json()["filters"] == []
+    review = client.get(f"{base(processed)}/review").json()
+    assert all(f["kept"] for f in review["filters"])
+
+    # keeping the same ones in again does not duplicate them
+    again = client.put(f"{base(processed)}/keep", json={"event_ids": ids, "keep": True}).json()
+    assert len(again["keep"]) == 2
+
+    back = client.put(f"{base(processed)}/keep", json={"event_ids": ids[:1], "keep": False}).json()
+    assert back["keep"] == ids[1:]
+    assert [f["id"] for f in client.get(f"{base(processed)}/playback").json()["filters"]] == ids[:1]
+
+
+def test_subtitles_are_masked_only_when_asked(client: TestClient, processed: Manifest) -> None:
     raw = client.get(f"{base(processed)}/subtitles/en.vtt").text
     assert "What the hell is that?" in raw
 
-    kids = client.get(f"{base(processed)}/subtitles/en.vtt", params={"profile": "kids"}).text
-    assert "What the **** is that?" in kids
-    assert "Hello there, friend." in kids
+    masked = client.get(f"{base(processed)}/subtitles/en.vtt", params={"mask": True}).text
+    assert "What the **** is that?" in masked
+    assert "Hello there, friend." in masked
 
-    # the family preset allows mild swearing, so nothing is masked
-    family = client.get(f"{base(processed)}/subtitles/en.vtt", params={"profile": "family"}).text
-    assert "hell" in family
+    # a word you chose to keep in is no longer masked
+    word = next(f for f in client.get(f"{base(processed)}/playback").json()["filters"] if f["text"])
+    client.put(f"{base(processed)}/events/{word['id']}/keep")
+    kept = client.get(f"{base(processed)}/subtitles/en.vtt", params={"mask": True}).text
+    assert "hell" in kept
 
 
 def test_srt_export_and_download_header(client: TestClient, processed: Manifest) -> None:

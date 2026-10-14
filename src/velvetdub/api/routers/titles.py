@@ -3,11 +3,14 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Query, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
 
 from velvetdub.api.deps import ContainerDep, CurrentUser
-from velvetdub.domain.manifest import Manifest
+from velvetdub.domain.filtering import FilterCategory
+from velvetdub.domain.manifest import Choices, Manifest
+from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
+from velvetdub.features.scene_filtering.factory import scannable_categories
 from velvetdub.pipeline.context import ProcessOptions
 from velvetdub.services.jobs import JobState
 
@@ -23,11 +26,25 @@ class TitleSummary(BaseModel):
     created_at: datetime
     duration: float | None
     stages: dict[str, str]
+    choices: Choices | None
+    scanned_categories: list[FilterCategory] | None
 
 
 class ProcessRequest(BaseModel):
-    subtitle_languages: list[str] = Field(default_factory=lambda: ["en"], min_length=1)
+    """Both lists may be empty: no subtitles, and nothing to scan the picture for."""
+
+    subtitle_languages: list[str] = Field(default_factory=list)
+    filter_categories: list[FilterCategory] = Field(default_factory=list)
     source_language: str | None = None
+
+    @field_validator("filter_categories")
+    @classmethod
+    def _picture_categories_only(cls, value: list[FilterCategory]) -> list[FilterCategory]:
+        # Swearing is found from the words and is not chosen here; the rest are not offered yet.
+        for category in value:
+            if category not in PICTURE_CATEGORIES:
+                raise ValueError(f"'{category.value}' is not something the picture scan checks.")
+        return value
 
 
 def _summary(manifest: Manifest) -> TitleSummary:
@@ -37,6 +54,8 @@ def _summary(manifest: Manifest) -> TitleSummary:
         created_at=manifest.created_at,
         duration=manifest.duration,
         stages={name: record.status.value for name, record in manifest.stages.items()},
+        choices=manifest.choices,
+        scanned_categories=manifest.scanned_categories,
     )
 
 
@@ -83,8 +102,18 @@ def process_title(
     title_id: str, body: ProcessRequest, container: ContainerDep, user: CurrentUser
 ) -> JobState:
     manifest = container.store.get(user.id, title_id)
+    unsupported = set(body.filter_categories) - set(scannable_categories(container.settings))
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail="This scanner can't check for "
+            + " or ".join(sorted(c.value.replace("_", " ") for c in unsupported))
+            + ".",
+        )
     options = ProcessOptions(
-        subtitle_languages=body.subtitle_languages, source_language=body.source_language
+        subtitle_languages=body.subtitle_languages,
+        filter_categories=body.filter_categories,
+        source_language=body.source_language,
     )
     return container.jobs.submit(manifest, options)
 

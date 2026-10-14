@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { FilterItem, PlaybackInfo, Profile } from '../../api/types'
+import type { FilterItem, PlaybackInfo } from '../../api/types'
 import { categoryLabel, formatTime, joinLabels } from '../../lib/format'
 import { languageLabel } from '../../lib/titles'
 import { FilterEngine, type SkipRegion } from '../../player/FilterEngine'
@@ -14,8 +14,6 @@ const NOTICE_MS = 9000
 
 interface Props {
   info: PlaybackInfo
-  profiles: Profile[]
-  onProfileChange: (profileId: string) => void
   /** Persist "Keep it in" for these detections. */
   onKeep: (eventIds: string[]) => Promise<void>
 }
@@ -29,7 +27,7 @@ function noticeFor(region: SkipRegion): SkipNoticeData {
   }
 }
 
-export function Player({ info, profiles, onProfileChange, onKeep }: Props) {
+export function Player({ info, onKeep }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
   const controller = useRef<PlaybackController | null>(null)
@@ -55,7 +53,7 @@ export function Player({ info, profiles, onProfileChange, onKeep }: Props) {
   )
   const engine = useMemo(() => new FilterEngine(activeFilters), [activeFilters])
 
-  // A new profile brings new filters, so earlier local "keep it in" choices no longer apply.
+  // New filters from the server already include what was kept in, so local choices reset.
   useEffect(() => setKeptNow(new Set()), [info])
 
   // Create the controller once per video element, then hand it new engines as they change.
@@ -184,7 +182,7 @@ export function Player({ info, profiles, onProfileChange, onKeep }: Props) {
         >
           {info.subtitle_tracks.map((track) => (
             <track
-              key={`${info.profile.id}-${track.language}`}
+              key={track.language}
               kind="subtitles"
               src={track.url}
               srcLang={track.language}
@@ -268,16 +266,6 @@ export function Player({ info, profiles, onProfileChange, onKeep }: Props) {
               ))}
             </select>
           </label>
-          <label className="inline-field">
-            Profile
-            <select value={info.profile.id} onChange={(e) => onProfileChange(e.target.value)}>
-              {profiles.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <button type="button" className="secondary" onClick={openFlag}>
             Flag this moment
           </button>
@@ -288,10 +276,10 @@ export function Player({ info, profiles, onProfileChange, onKeep }: Props) {
 
         <p className="meta num filter-summary">
           {activeFilters.length === 0
-            ? 'No filters are active for this profile.'
+            ? 'No filters are active.'
             : info.runtime_removed > 0
-              ? `${info.profile.name}: ${formatTime(info.runtime_removed)} will be skipped.`
-              : `${info.profile.name}: ${activeFilters.length} moments filtered.`}
+              ? `${formatTime(info.runtime_removed)} will be skipped.`
+              : `${activeFilters.length} moments filtered.`}
         </p>
         {error && (
           <p role="alert" className="error-note">

@@ -6,15 +6,17 @@ import pytest
 from pydantic import BaseModel
 
 from tests.conftest import FakeMediaTool
+from velvetdub.config.settings import Settings
 from velvetdub.domain.filtering import FilterCategory, Severity
 from velvetdub.errors import ProviderError
+from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.features.scene_filtering.detections import (
     ClipResult,
     Detection,
     VisualCategory,
     parse_clock,
 )
-from velvetdub.features.scene_filtering.prompt import PROMPT
+from velvetdub.features.scene_filtering.prompt import build_prompt
 from velvetdub.features.scene_filtering.scanner import SceneScanner
 from velvetdub.providers.base import VideoAnalyzer
 
@@ -41,14 +43,57 @@ def detection(
 
 
 def scan(result: ClipResult, offset: float = 0) -> list:  # type: ignore[type-arg]
-    scanner = SceneScanner(StubAnalyzer(result))
+    scanner = SceneScanner(StubAnalyzer(result), PICTURE_CATEGORIES)
     return scanner.scan_clip(Path("c.mp4"), offset=offset, media=FakeMediaTool()).events
 
 
-def test_the_scan_asks_with_the_scene_filtering_instructions(tmp_path: Path) -> None:
+def test_the_scan_asks_with_instructions_built_from_the_chosen_categories(tmp_path: Path) -> None:
     analyzer = StubAnalyzer(ClipResult(detections=[]))
-    SceneScanner(analyzer).scan_clip(tmp_path / "c.mp4", offset=0, media=FakeMediaTool())
-    assert analyzer.instructions == [PROMPT]
+    chosen = [FilterCategory.VIOLENCE, FilterCategory.NUDITY]
+    SceneScanner(analyzer, chosen).scan_clip(tmp_path / "c.mp4", offset=0, media=FakeMediaTool())
+    assert analyzer.instructions == [build_prompt(chosen)]
+
+
+def test_the_prompt_mentions_only_the_chosen_categories_in_a_fixed_order() -> None:
+    prompt = build_prompt([FilterCategory.VIOLENCE, FilterCategory.NUDITY])
+    assert "- nudity: partial or full nudity" in prompt
+    assert "- violence: fights, weapons" in prompt
+    assert prompt.index("- nudity:") < prompt.index("- violence:")  # not the order ticked
+    for left_out in ("sexual_content", "scary_scenes", "drugs_and_drinking"):
+        assert left_out not in prompt
+    assert build_prompt([FilterCategory.VIOLENCE, FilterCategory.NUDITY]) == build_prompt(
+        [FilterCategory.NUDITY, FilterCategory.VIOLENCE, FilterCategory.NUDITY]
+    )
+
+
+def test_the_prompt_ignores_categories_the_picture_scan_does_not_cover() -> None:
+    assert "- swearing:" not in build_prompt([FilterCategory.SWEARING, FilterCategory.NUDITY])
+
+
+def test_every_offered_category_has_its_own_line() -> None:
+    for category in PICTURE_CATEGORIES:
+        assert f"- {category.value}:" in build_prompt([category])
+
+
+def test_the_scan_key_changes_with_the_chosen_categories(settings: Settings) -> None:
+    analyzer = StubAnalyzer(ClipResult(detections=[]))
+    nudity = SceneScanner(analyzer, [FilterCategory.NUDITY]).config_key(settings)
+    both = SceneScanner(analyzer, [FilterCategory.NUDITY, FilterCategory.VIOLENCE])
+    assert nudity != both.config_key(settings)
+    swapped = SceneScanner(analyzer, [FilterCategory.VIOLENCE, FilterCategory.NUDITY])
+    assert both.config_key(settings) == swapped.config_key(settings)
+
+
+def test_a_stray_answer_outside_the_chosen_categories_is_dropped(tmp_path: Path) -> None:
+    result = ClipResult(
+        detections=[
+            detection("00:01", "00:02", VisualCategory.VIOLENCE),
+            detection("00:05", "00:06", VisualCategory.NUDITY),
+        ]
+    )
+    scanner = SceneScanner(StubAnalyzer(result), [FilterCategory.NUDITY])
+    events = scanner.scan_clip(tmp_path / "c.mp4", offset=0, media=FakeMediaTool()).events
+    assert [e.category for e in events] == [FilterCategory.NUDITY]
 
 
 def test_detections_are_shifted_onto_the_film_timeline() -> None:

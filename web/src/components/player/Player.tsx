@@ -5,7 +5,6 @@ import { languageLabel } from '../../lib/titles'
 import { FilterEngine, type SkipRegion } from '../../player/FilterEngine'
 import { PlaybackController } from '../../player/PlaybackController'
 import { FullScreenIcon, PauseIcon, PlayIcon, RewindIcon, VolumeIcon } from '../Icons'
-import { FlagMoment } from './FlagMoment'
 import { SeekBar } from './SeekBar'
 import { SkipNotice, type SkipNoticeData } from './SkipNotice'
 import './player.css'
@@ -44,7 +43,6 @@ export function Player({ info, onKeep }: Props) {
     info.subtitle_tracks[0]?.language ?? 'off',
   )
   const [audioTrackId, setAudioTrackId] = useState(info.audio_tracks[0]?.id ?? '')
-  const [flagging, setFlagging] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const activeFilters = useMemo(
@@ -161,11 +159,6 @@ export function Player({ info, onKeep }: Props) {
     controller.current?.setExternalAudio(element)
   }
 
-  function openFlag() {
-    videoRef.current?.pause()
-    setFlagging(true)
-  }
-
   return (
     <section className="player" aria-label={`Player: ${info.name}`}>
       <div className="stage" ref={stageRef}>
@@ -266,9 +259,6 @@ export function Player({ info, onKeep }: Props) {
               ))}
             </select>
           </label>
-          <button type="button" className="secondary" onClick={openFlag}>
-            Flag this moment
-          </button>
           <button type="button" className="icon-button" onClick={toggleFullScreen} aria-label="Full screen">
             <FullScreenIcon />
           </button>
@@ -285,9 +275,6 @@ export function Player({ info, onKeep }: Props) {
           <p role="alert" className="error-note">
             {error}
           </p>
-        )}
-        {flagging && (
-          <FlagMoment titleId={info.title_id} time={time} onClose={() => setFlagging(false)} />
         )}
       </div>
     </section>

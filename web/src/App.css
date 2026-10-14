@@ -882,8 +882,18 @@ button.primary:disabled {
   background: var(--stage-black);
 }
 
-.poster .harbor {
-  height: auto;
+/* Every poster is 16:9 whatever the film's shape, cropped to fill rather than stretched. */
+.poster-picture {
+  aspect-ratio: 16 / 9;
+  background: var(--stage-black);
+}
+
+.poster-picture img,
+.poster-picture .harbor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .poster-curtains {

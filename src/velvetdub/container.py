@@ -20,6 +20,7 @@ from velvetdub.providers.provider_set import ProviderSet
 from velvetdub.services.jobs import JobManager
 from velvetdub.services.overrides import OverrideService
 from velvetdub.services.playback import PlaybackService
+from velvetdub.services.posters import PosterService
 from velvetdub.services.subtitles import SubtitleService
 from velvetdub.storage.corrections import CorrectionRepository, SqliteCorrectionRepository
 from velvetdub.storage.title_store import FileSystemTitleStore, TitleStore
@@ -36,6 +37,7 @@ class Container:
     corrections: CorrectionRepository
     overrides: OverrideService
     playback: PlaybackService
+    posters: PosterService
     subtitles: SubtitleService
     jobs: JobManager
 
@@ -74,16 +76,18 @@ def build_container(
     def run(manifest: Manifest, options: ProcessOptions, observer: PipelineObserver) -> None:
         container.process(manifest, options, observer)
 
+    media_tool = media or FFmpegMediaTool()
     container = Container(
         settings=settings,
         store=store,
         identity=LocalIdentityProvider(),
         providers=ProviderSet(settings),
-        media=media or FFmpegMediaTool(),
+        media=media_tool,
         policy=policy,
         corrections=SqliteCorrectionRepository(settings.data_path / "velvetdub.db"),
         overrides=overrides,
         playback=playback,
+        posters=PosterService(store, media_tool),
         subtitles=SubtitleService(store, playback),
         jobs=JobManager(run, [stage.name for stage in phase1_stages()]),
     )

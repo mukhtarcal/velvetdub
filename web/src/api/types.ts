@@ -107,16 +107,6 @@ export interface ScriptLine {
   text: string
 }
 
-export type CorrectionKind = 'missed' | 'wrong'
-
-export interface CorrectionInput {
-  kind: CorrectionKind
-  at_seconds: number
-  category?: string | null
-  event_id?: string | null
-  note?: string | null
-}
-
 /** Pipeline stages in order, with plain-language labels. */
 export const PIPELINE_STAGES: { id: string; label: string }[] = [
   { id: 'extract_audio', label: 'Extracting the audio' },

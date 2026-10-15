@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppLayout } from './components/AppLayout'
 import { AddTitlePage } from './pages/AddTitlePage'
+import { DownloadPage } from './pages/DownloadPage'
 import { LibraryPage } from './pages/LibraryPage'
 import { ProcessPage } from './pages/ProcessPage'
 import { ReviewPage } from './pages/ReviewPage'
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="library" element={<LibraryPage />} />
         <Route path="titles/:titleId/process" element={<ProcessPage />} />
         <Route path="titles/:titleId/review" element={<ReviewPage />} />
+        <Route path="titles/:titleId/download" element={<DownloadPage />} />
       </Route>
       {/* The player is full-screen, without the top bar */}
       <Route path="titles/:titleId/watch" element={<WatchPage />} />

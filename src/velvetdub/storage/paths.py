@@ -42,6 +42,16 @@ class TitlePaths:
         return self.root / "poster.jpg"
 
     @property
+    def export_video(self) -> Path:
+        """The cleaned copy of the film, made on request (the source is never changed)."""
+        return self.root / "exports" / "cleaned.mp4"
+
+    @property
+    def export_record(self) -> Path:
+        """Which cuts `export_video` was made from, so an unchanged export is not made again."""
+        return self.root / "exports" / "cleaned.json"
+
+    @property
     def transcript(self) -> Path:
         return self.root / "transcript.json"
 

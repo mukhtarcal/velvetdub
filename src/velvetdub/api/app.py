@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 
 from velvetdub import __version__
 from velvetdub.api.guard import LocalOnlyGuard
-from velvetdub.api.routers import health, media, playback, subtitles, titles
+from velvetdub.api.routers import exports, health, media, playback, subtitles, titles
 from velvetdub.container import Container, build_container
 from velvetdub.errors import (
     InvalidNameError,
@@ -34,6 +34,7 @@ def create_app(container: Container | None = None) -> FastAPI:
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         yield
         resolved.jobs.shutdown()
+        resolved.exports.shutdown()
 
     app = FastAPI(title="Velvet Dub", version=__version__, lifespan=lifespan)
     app.state.container = resolved
@@ -46,6 +47,6 @@ def create_app(container: Container | None = None) -> FastAPI:
                 return JSONResponse({"detail": str(exc)}, status_code=status)
         return JSONResponse({"detail": "Something went wrong."}, status_code=500)
 
-    for router in (health, titles, playback, subtitles, media):
+    for router in (health, titles, playback, subtitles, media, exports):
         app.include_router(router.router, prefix="/api")
     return app

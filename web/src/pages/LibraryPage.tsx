@@ -107,6 +107,9 @@ export function LibraryPage() {
                   <Link to={`/titles/${title.id}/review`} className="text">
                     Review the cuts
                   </Link>
+                  <Link to={`/titles/${title.id}/download`} className="text">
+                    Download
+                  </Link>
                 </div>
               )}
 

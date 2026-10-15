@@ -17,6 +17,7 @@ from velvetdub.pipeline.observer import NullObserver, PipelineObserver
 from velvetdub.pipeline.runner import PipelineRunner
 from velvetdub.pipeline.stages import phase1_stages
 from velvetdub.providers.provider_set import ProviderSet
+from velvetdub.services.exports import ExportService
 from velvetdub.services.jobs import JobManager
 from velvetdub.services.overrides import OverrideService
 from velvetdub.services.playback import PlaybackService
@@ -38,6 +39,7 @@ class Container:
     overrides: OverrideService
     playback: PlaybackService
     posters: PosterService
+    exports: ExportService
     subtitles: SubtitleService
     jobs: JobManager
 
@@ -88,6 +90,7 @@ def build_container(
         overrides=overrides,
         playback=playback,
         posters=PosterService(store, media_tool),
+        exports=ExportService(store, playback, media_tool),
         subtitles=SubtitleService(store, playback),
         jobs=JobManager(run, [stage.name for stage in phase1_stages()]),
     )

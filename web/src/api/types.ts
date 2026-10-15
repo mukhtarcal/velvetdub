@@ -98,6 +98,21 @@ export interface JobState {
   error: string | null
 }
 
+export type ExportStatus = 'none' | 'working' | 'ready' | 'failed'
+
+/** The cleaned copy of a film. The numbers describe the copy the cuts as they are now would make. */
+export interface ExportState {
+  status: ExportStatus
+  percent: number
+  error: string | null
+  filename: string
+  size_bytes: number | null
+  output_seconds: number
+  removed_seconds: number
+  cuts: number
+  muted_words: number
+}
+
 export interface ScriptLine {
   segment_id: string
   start: number

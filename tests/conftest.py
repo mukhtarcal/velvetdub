@@ -1,9 +1,11 @@
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from velvetdub.config.settings import Settings
 from velvetdub.container import Container, build_container
+from velvetdub.domain.export import EditPlan
 from velvetdub.media.tools import MediaTool, ScanClip
 
 
@@ -11,6 +13,7 @@ class FakeMediaTool(MediaTool):
     def __init__(self) -> None:
         self.extract_calls = 0
         self.poster_calls: list[float] = []
+        self.render_calls: list[EditPlan] = []
 
     def extract_audio(self, source: Path, dest: Path) -> None:
         self.extract_calls += 1
@@ -41,6 +44,15 @@ class FakeMediaTool(MediaTool):
         for frame in frames:
             frame.write_bytes(b"frame")
         return frames
+
+    def render_cleaned(
+        self, source: Path, dest: Path, plan: EditPlan, on_progress: Callable[[float], None]
+    ) -> None:
+        self.render_calls.append(plan)
+        on_progress(0.5)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"cleaned-video")
+        on_progress(1.0)
 
     def extract_poster(self, source: Path, dest: Path, *, at_seconds: float) -> None:
         self.poster_calls.append(at_seconds)

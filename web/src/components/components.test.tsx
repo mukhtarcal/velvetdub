@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { ReviewFilterItem } from '../api/types'
-import { FilterTimeline } from './FilterTimeline'
+import type { ReviewFilterItem } from '@/api/types'
+import { FilterTimeline } from './review/FilterTimeline'
 import { SeekBar } from './player/SeekBar'
 import { SkipNotice } from './player/SkipNotice'
 

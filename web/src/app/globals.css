@@ -1,0 +1,130 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '../styles/tokens.css';
+@import '../styles/stage.css';
+
+/* Dark only (docs/BRAND.md): there is no light theme, so there is no dark variant to switch. */
+
+/* shadcn's names, pointed at the brand tokens. `inline` keeps them live var() references. */
+@theme inline {
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --color-card: var(--surface-deep);
+  --color-card-foreground: var(--ink);
+  --color-popover: var(--panel);
+  --color-popover-foreground: var(--ink);
+  --color-primary: var(--velvet);
+  --color-primary-foreground: var(--ink);
+  --color-secondary: var(--raised);
+  --color-secondary-foreground: var(--ink);
+  --color-muted: var(--panel);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--raised);
+  --color-accent-foreground: var(--ink);
+  --color-destructive: var(--signal);
+  --color-border: var(--line);
+  --color-input: var(--border-control);
+  --color-ring: var(--brass);
+
+  /* brand names, for utilities like bg-velvet or text-brass */
+  --color-ground: var(--ground);
+  --color-stage-black: var(--stage-black);
+  --color-surface-deep: var(--surface-deep);
+  --color-panel: var(--panel);
+  --color-raised: var(--raised);
+  --color-track: var(--track);
+  --color-line: var(--line);
+  --color-border-control: var(--border-control);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-faint: var(--faint);
+  --color-velvet: var(--velvet);
+  --color-velvet-deep: var(--velvet-deep);
+  --color-velvet-mid: var(--velvet-mid);
+  --color-velvet-sheen: var(--velvet-sheen);
+  --color-velvet-shadow: var(--velvet-shadow);
+  --color-on-velvet: var(--on-velvet);
+  --color-signal: var(--signal);
+  --color-brass: var(--brass);
+  --color-gilt: var(--gilt);
+  --color-fringe: var(--fringe);
+
+  --font-display: var(--font-limelight), serif;
+  --font-sans: var(--font-archivo), system-ui, sans-serif;
+
+  /* Square corners; controls get 2px. */
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    color-scheme: dark;
+  }
+  html,
+  body {
+    overflow-x: clip;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 16px;
+    line-height: 24px;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Limelight is one weight: never bold, never all caps, never letter-spaced. */
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+  p {
+    color: var(--ink-soft);
+  }
+  :focus-visible {
+    outline: 2px solid var(--brass);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--velvet);
+    color: var(--ink);
+  }
+}
+
+@utility marquee-label {
+  /* Archivo Bold at 75% width, uppercase, 0.18em spacing, brass. One per block. */
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-stretch: 75%;
+  font-size: 13.5px;
+  line-height: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--brass);
+}
+
+@utility meta {
+  font-size: 14.5px;
+  line-height: 22px;
+  color: var(--muted);
+}
+
+@utility text-action {
+  /* Text actions: underlined ivory. */
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--border-strong);
+  transition: text-decoration-color 160ms ease;
+  &:hover {
+    text-decoration-color: var(--brass);
+  }
+}

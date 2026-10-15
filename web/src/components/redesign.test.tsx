@@ -1,14 +1,13 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { JobState, ReviewInfo, TitleSummary } from '../api/types'
-import { api } from '../api/client'
-import { ProcessPage } from '../pages/ProcessPage'
-import { Curtains } from './Curtains'
+import type { JobState, ReviewInfo, TitleSummary } from '@/api/types'
+import { api } from '@/api/client'
+import { ProcessView } from './views/ProcessView'
+import { Curtains } from './brand/Curtains'
 import { FilterTiles } from './FilterTiles'
 
-vi.mock('../api/client', () => ({
+vi.mock('@/api/client', () => ({
   api: { titleSummary: vi.fn(), progress: vi.fn(), process: vi.fn(), review: vi.fn() },
 }))
 
@@ -94,11 +93,7 @@ const review: ReviewInfo = {
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={['/titles/t1/process']}>
-      <Routes>
-        <Route path="titles/:titleId/process" element={<ProcessPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <ProcessView titleId="t1" />,
   )
 }
 
@@ -152,6 +147,6 @@ describe('ProcessPage curtains', () => {
     renderPage()
     expect(await screen.findByText('We found nothing to skip.')).toBeTruthy()
     expect(screen.queryByText('Review the cuts')).toBeNull()
-    expect(screen.getByRole('link', { name: 'Watch now' }).className).toContain('primary')
+    expect(screen.getByRole('link', { name: 'Watch now' }).dataset.variant).toBe('primary')
   })
 })

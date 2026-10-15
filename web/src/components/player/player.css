@@ -1,37 +1,15 @@
-/* Player: stage in stage-black, controls under a velvet rule (docs/BRAND.md). */
+/* Player pieces that need plain CSS: subtitle cues and the native range input. */
 
-.player {
-  background: var(--stage-black);
-}
-
-.stage {
-  position: relative;
-  background: var(--stage-black);
-  aspect-ratio: 16 / 9;
-  max-height: 72vh;
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.stage:fullscreen {
-  max-height: none;
-}
-
-.stage video {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  background: var(--stage-black);
-}
-
-/* Subtitles: ivory with a soft shadow; the second language uses subtitle-second. */
-.stage video::cue {
+.player-stage video::cue {
   color: var(--ink);
   background: transparent;
   font-family: var(--font-body);
   font-size: 1.4rem;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.95);
+}
+
+.player-stage:fullscreen {
+  max-height: none;
 }
 
 .blur-layer {
@@ -41,84 +19,7 @@
   pointer-events: none;
 }
 
-.skip-notice {
-  position: absolute;
-  left: 20px;
-  bottom: 24px;
-  max-width: min(420px, 80%);
-  background: var(--surface-deep);
-  border: 1px solid var(--line);
-  padding: 12px 16px;
-}
-
-.skip-line {
-  margin: 0;
-  color: var(--ink);
-}
-
-.skip-line .signal {
-  color: var(--signal);
-  font-weight: 700;
-}
-
-.skip-actions {
-  display: flex;
-  gap: 8px;
-}
-
-/* ---- controls --------------------------------------------------------------------- */
-
-.controls {
-  border-top: 2px solid var(--velvet);
-  background: var(--ground);
-  padding: 12px 16px 16px;
-}
-
-.control-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.control-row .spacer {
-  flex: 1;
-}
-
-button.icon-button {
-  width: var(--hit-target);
-  height: var(--hit-target);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: transparent;
-  color: var(--ink);
-  border: 1px solid transparent;
-  padding: 0;
-}
-
-button.icon-button:hover {
-  border-color: var(--border-control);
-}
-
-.time {
-  color: var(--muted);
-  margin-left: 8px;
-}
-
-.inline-field {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  color: var(--muted);
-  font-size: 14.5px;
-}
-
-.filter-summary {
-  margin: 10px 0 0;
-}
-
-/* Seek bar: a mark for every filtered moment, in its category colour (see App.css). */
+/* Seek bar: a mark for every filtered moment, in its category colour. */
 .seek {
   position: relative;
   height: var(--hit-target);
@@ -134,6 +35,7 @@ button.icon-button:hover {
   height: 8px;
   transform: translateY(-50%);
   pointer-events: none;
+  z-index: 1;
 }
 
 .seek-marks span {
@@ -143,6 +45,18 @@ button.icon-button:hover {
   background: var(--cat, var(--signal));
 }
 
+.seek-played {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  height: 8px;
+  width: 100%;
+  transform: translateY(-50%) scaleX(var(--played, 0));
+  transform-origin: left;
+  background: rgb(243 236 228 / 0.18);
+  pointer-events: none;
+}
+
 .seek input[type='range'] {
   position: relative;
   width: 100%;
@@ -150,6 +64,7 @@ button.icon-button:hover {
   background: transparent;
   appearance: none;
   height: var(--hit-target);
+  cursor: pointer;
 }
 
 .seek input[type='range']::-webkit-slider-runnable-track {
@@ -160,11 +75,18 @@ button.icon-button:hover {
 
 .seek input[type='range']::-webkit-slider-thumb {
   appearance: none;
+  position: relative;
+  z-index: 2;
   width: 6px;
   height: 22px;
   margin-top: -8px;
   background: var(--ink);
   border: 0;
+  transition: transform 150ms ease;
+}
+
+.seek input[type='range']:hover::-webkit-slider-thumb {
+  transform: scaleY(1.15);
 }
 
 .seek input[type='range']::-moz-range-track {
@@ -179,29 +101,4 @@ button.icon-button:hover {
   background: var(--ink);
   border: 0;
   border-radius: 0;
-}
-
-/* Marks sit above the track but below the thumb. */
-.seek-marks {
-  z-index: 1;
-}
-
-/* ---- watch page ------------------------------------------------------------------- */
-
-.watch {
-  min-height: 100vh;
-  background: var(--ground);
-}
-
-.title-bar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--line);
-}
-
-.title-bar h1 {
-  font-size: 29px;
-  margin: 0;
 }

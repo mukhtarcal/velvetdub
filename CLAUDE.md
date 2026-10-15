@@ -7,8 +7,11 @@ Read first: `docs/PLAN.md` (phases, architecture, extensibility rules) and `docs
 ## Commands
 - Python (from repo root; never use pip or global installs): `uv sync`, `uv run pytest`, `uv run ruff check . && uv run ruff format .`, `uv run mypy`
 - CLI: `uv run vd --help` (`doctor`, `providers`, `process <file> --subs en,es`, `titles`, `serve`)
+- Run the app: `./dev.sh` from the repo root starts the API and the web app together (Ctrl+C stops both), then open http://127.0.0.1:5273. It installs `web/node_modules` on first run.
 - Web: `source ~/.nvm/nvm.sh && nvm use 22` then `npm --prefix web run dev|build|lint|test` (npm only, no pnpm)
-- API on 127.0.0.1:8765 (`uv run vd serve`), web on 127.0.0.1:5273 (proxies `/api`). Unusual ports on purpose: other local projects use 8000/5173.
+- API on 127.0.0.1:8765 (`uv run vd serve`), web on 127.0.0.1:5273 (Next.js rewrites `/api/*` to the API in `web/next.config.ts`). Unusual ports on purpose: other local projects use 8000/5173.
+- Web stack: Next.js (App Router, client-rendered pages) + Tailwind v4 + shadcn/ui (Radix) + Motion. Brand tokens live in `web/src/styles/tokens.css` and are mapped to shadcn's names in `web/src/app/globals.css`; theatre motifs (curtains, valance, grain) in `web/src/styles/stage.css`. Pages are thin wrappers in `web/src/app/`; screens live in `web/src/components/views/`. `web/src/api`, `lib`, `hooks` and `player` are framework-free.
+- Next.js here is newer than most training data: read `web/node_modules/next/dist/docs/` before changing config or routing. `cacheComponents` is off on purpose (it keeps old pages mounted, which would leave a film playing out of sight).
 
 ## Rules
 - **Work machine: change nothing global.** Everything installs inside this folder (`.venv`, `web/node_modules`). No `brew install`, `npm -g`, or edits outside the repo without asking.

@@ -1,4 +1,4 @@
-import { PIPELINE_STAGES, type Choices, type JobState, type TitleSummary } from '../api/types'
+import { PIPELINE_STAGES, type Choices, type JobState, type ProcessChoices, type TitleSummary } from '../api/types'
 import { joinLabels } from './format'
 import { filterWords } from './filters'
 
@@ -56,6 +56,14 @@ export function choicesLine(choices: Choices | null): string {
     ? `Subtitles in ${joinLabels(languages.map(languageLabel))}`
     : 'No subtitles'
   return `${skips} · ${subs}`
+}
+
+/** What was asked last time, to start processing again with the same choices. */
+export function retryChoices(title: TitleSummary | null): ProcessChoices {
+  return {
+    subtitle_languages: title?.choices?.subtitle_languages ?? [],
+    filter_categories: (title?.choices?.filter_categories ?? []) as ProcessChoices['filter_categories'],
+  }
 }
 
 export const LANGUAGES: { code: string; label: string }[] = [

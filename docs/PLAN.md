@@ -43,7 +43,7 @@ Independent stages; each reads files, writes files, is skipped if its output exi
 
 ### Stack
 - **Pipeline/backend:** Python (uv), ffmpeg, FastAPI serving files + API, SQLite for profiles/settings/user corrections.
-- **Web:** Vite + React + TypeScript (npm, Node 22). Styling from `BRAND.md` tokens (dark-only; Limelight + Archivo via Google Fonts).
+- **Web:** Next.js (App Router) + React + TypeScript + Tailwind + shadcn/ui + Motion (npm, Node 22). Styling from `BRAND.md` tokens (dark-only; Limelight + Archivo via `next/font`). Next.js forwards `/api` to the local API.
 - **Services:** transcription (API to start, e.g. AssemblyAI; local Whisper as a swap), Gemini Flash for visual moderation, Claude for translation. Phase 2: TTS provider (stock voices first).
 - **Player:** HTML5 `<video>` over the source MP4 with Range requests. Video element is muted; the chosen audio track plays in a synced `<audio>` element — so adding a dub is adding a file. Filters applied live from `filters.json` + active profile: skip (seek past range), mute (gain 0), blur (overlay), summary card.
 

@@ -58,10 +58,11 @@
   --subtitle-second: #e9d9b4;
 
   /* type */
-  --font-display: 'Limelight', serif;
-  --font-body: 'Archivo', system-ui, sans-serif;
+  --font-display: var(--font-limelight), serif;
+  --font-body: var(--font-archivo), system-ui, sans-serif;
 
   /* shape: square corners, controls get 2px */
   --radius-control: 2px;
   --hit-target: 44px;
+  --ease-house: cubic-bezier(0.22, 1, 0.36, 1);
 }

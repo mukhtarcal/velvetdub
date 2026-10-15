@@ -1,10 +1,14 @@
+'use client'
+
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { FilterItem, PlaybackInfo } from '../../api/types'
-import { categoryLabel, formatTime, joinLabels } from '../../lib/format'
-import { languageLabel } from '../../lib/titles'
-import { FilterEngine, type SkipRegion } from '../../player/FilterEngine'
-import { PlaybackController } from '../../player/PlaybackController'
-import { FullScreenIcon, PauseIcon, PlayIcon, RewindIcon, VolumeIcon } from '../Icons'
+import { AnimatePresence } from 'motion/react'
+import { Maximize, Pause, Play, RotateCcw, Volume2, VolumeX } from 'lucide-react'
+import type { FilterItem, PlaybackInfo } from '@/api/types'
+import { Button } from '@/components/ui/button'
+import { categoryLabel, formatTime, joinLabels } from '@/lib/format'
+import { languageLabel } from '@/lib/titles'
+import { FilterEngine, type SkipRegion } from '@/player/FilterEngine'
+import { PlaybackController } from '@/player/PlaybackController'
 import { SeekBar } from './SeekBar'
 import { SkipNotice, type SkipNoticeData } from './SkipNotice'
 import './player.css'
@@ -159,14 +163,21 @@ export function Player({ info, onKeep }: Props) {
     controller.current?.setExternalAudio(element)
   }
 
+  const selectClass =
+    'min-h-11 cursor-pointer rounded-sm border border-border-control bg-panel px-3 text-[15px] text-ink outline-none focus-visible:ring-1 focus-visible:ring-brass'
+
   return (
-    <section className="player" aria-label={`Player: ${info.name}`}>
-      <div className="stage" ref={stageRef}>
+    <section aria-label={`Player: ${info.name}`} className="flex flex-col bg-stage-black">
+      <div
+        ref={stageRef}
+        className="player-stage relative mx-auto flex aspect-video max-h-[74svh] w-full justify-center bg-stage-black"
+      >
         <video
           ref={videoRef}
           src={info.source_url}
           playsInline
           preload="metadata"
+          className="size-full bg-stage-black object-contain"
           onClick={togglePlay}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
@@ -202,10 +213,12 @@ export function Player({ info, onKeep }: Props) {
           />
         ))}
 
-        {notice && <SkipNotice notice={notice.data} onKeepIn={() => void keepIn()} />}
+        <AnimatePresence>
+          {notice && <SkipNotice key={notice.start} notice={notice.data} onKeepIn={() => void keepIn()} />}
+        </AnimatePresence>
       </div>
 
-      <div className="controls">
+      <div className="border-t-2 border-velvet bg-ground px-3 pt-2 pb-4 sm:px-6">
         <SeekBar
           time={time}
           duration={duration}
@@ -214,32 +227,26 @@ export function Player({ info, onKeep }: Props) {
             if (videoRef.current) videoRef.current.currentTime = seconds
           }}
         />
-        <div className="control-row">
-          <button type="button" className="icon-button" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
-            {playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <button type="button" className="icon-button" onClick={() => seekBy(-10)} aria-label="Back 10 seconds">
-            <RewindIcon />
-          </button>
-          <button
-            type="button"
-            className="icon-button"
-            onClick={toggleMute}
-            aria-label={muted ? 'Unmute' : 'Mute'}
-            aria-pressed={muted}
-          >
-            <VolumeIcon muted={muted} />
-          </button>
-          <span className="num time">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="icon" onClick={togglePlay} aria-label={playing ? 'Pause' : 'Play'}>
+            {playing ? <Pause /> : <Play />}
+          </Button>
+          <Button variant="icon" onClick={() => seekBy(-10)} aria-label="Back 10 seconds">
+            <RotateCcw />
+          </Button>
+          <Button variant="icon" onClick={toggleMute} aria-label={muted ? 'Unmute' : 'Mute'} aria-pressed={muted}>
+            {muted ? <VolumeX /> : <Volume2 />}
+          </Button>
+          <span className="ml-2 text-muted-foreground tabular-nums">
             {formatTime(time)} / {formatTime(duration)}
           </span>
 
-          <span className="spacer" />
+          <span className="flex-1" />
 
           {info.audio_tracks.length > 1 && (
-            <label className="inline-field">
+            <label className="inline-flex items-center gap-2 text-[14.5px] text-muted-foreground">
               Audio
-              <select value={audioTrackId} onChange={(e) => chooseAudio(e.target.value)}>
+              <select className={selectClass} value={audioTrackId} onChange={(e) => chooseAudio(e.target.value)}>
                 {info.audio_tracks.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.label}
@@ -248,9 +255,9 @@ export function Player({ info, onKeep }: Props) {
               </select>
             </label>
           )}
-          <label className="inline-field">
+          <label className="inline-flex items-center gap-2 text-[14.5px] text-muted-foreground">
             Subtitles
-            <select value={subtitleLanguage} onChange={(e) => setSubtitleLanguage(e.target.value)}>
+            <select className={selectClass} value={subtitleLanguage} onChange={(e) => setSubtitleLanguage(e.target.value)}>
               <option value="off">Off</option>
               {info.subtitle_tracks.map((t) => (
                 <option key={t.language} value={t.language}>
@@ -259,12 +266,12 @@ export function Player({ info, onKeep }: Props) {
               ))}
             </select>
           </label>
-          <button type="button" className="icon-button" onClick={toggleFullScreen} aria-label="Full screen">
-            <FullScreenIcon />
-          </button>
+          <Button variant="icon" onClick={toggleFullScreen} aria-label="Full screen">
+            <Maximize />
+          </Button>
         </div>
 
-        <p className="meta num filter-summary">
+        <p className="meta m-0 mt-2 tabular-nums">
           {activeFilters.length === 0
             ? 'No filters are active.'
             : info.runtime_removed > 0
@@ -272,7 +279,7 @@ export function Player({ info, onKeep }: Props) {
               : `${activeFilters.length} moments filtered.`}
         </p>
         {error && (
-          <p role="alert" className="error-note">
+          <p role="alert" className="m-0 mt-2 border-l-2 border-signal pl-3 text-ink">
             {error}
           </p>
         )}

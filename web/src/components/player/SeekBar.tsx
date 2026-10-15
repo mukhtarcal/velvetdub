@@ -1,5 +1,6 @@
-import type { FilterItem } from '../../api/types'
-import { categoryLabel, drawWorstLast, formatTime } from '../../lib/format'
+import { useMemo } from 'react'
+import type { FilterItem } from '@/api/types'
+import { categoryLabel, drawWorstLast, formatTime } from '@/lib/format'
 
 /** The seek bar, with every filtered moment marked in the colour of its category. Where moments
  * overlap, the worst one is drawn on top (nudity, then sex scenes, violence, scary scenes). */
@@ -14,11 +15,14 @@ export function SeekBar({
   filters: FilterItem[]
   onSeek: (seconds: number) => void
 }) {
+  const marks = useMemo(() => drawWorstLast(filters), [filters])
+  const played = duration > 0 ? Math.min(1, time / duration) : 0
   return (
-    <div className="seek">
+    <div className="seek" style={{ ['--played' as string]: played }}>
+      <div className="seek-played" aria-hidden="true" />
       <div className="seek-marks" aria-hidden="true">
         {duration > 0 &&
-          drawWorstLast(filters).map((f) => (
+          marks.map((f) => (
             <span
               key={f.id}
               data-category={f.category}

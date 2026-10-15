@@ -17,8 +17,14 @@ uv run vd doctor            # checks ffmpeg, keys and providers
 ## Run
 
 ```bash
+./dev.sh                                # API and web together; open http://127.0.0.1:5273
+```
+
+Or each on its own:
+
+```bash
 uv run vd serve                         # API on http://127.0.0.1:8765
-npm --prefix web run dev                # web on http://127.0.0.1:5273
+npm --prefix web run dev                # web (Next.js) on http://127.0.0.1:5273, forwards /api to 8765
 uv run vd process path/to/film.mp4 --subs en,es
 ```
 

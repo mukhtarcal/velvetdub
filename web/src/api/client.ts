@@ -3,6 +3,7 @@
 
 import type {
   Capabilities,
+  ExportState,
   JobState,
   PlaybackInfo,
   ProcessChoices,
@@ -60,6 +61,10 @@ export const api = {
   /** One title's summary. The list is short and local, so this filters it rather than adding a route. */
   titleSummary: async (titleId: string) =>
     (await request<TitleSummary[]>('/titles')).find((t) => t.id === titleId) ?? null,
+  exportState: (titleId: string) => request<ExportState>(`/titles/${enc(titleId)}/export`),
+  startExport: (titleId: string) =>
+    request<ExportState>(`/titles/${enc(titleId)}/export`, { method: 'POST' }),
+  exportFileUrl: (titleId: string) => `/api/titles/${enc(titleId)}/export/file`,
   capabilities: () => request<Capabilities>('/capabilities'),
   playback: (titleId: string) => request<PlaybackInfo>(`/titles/${enc(titleId)}/playback`),
   review: (titleId: string) => request<ReviewInfo>(`/titles/${enc(titleId)}/review`),

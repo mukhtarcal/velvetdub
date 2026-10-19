@@ -8,12 +8,13 @@ from functools import cached_property
 
 import velvetdub.providers.anthropic
 import velvetdub.providers.assemblyai
+import velvetdub.providers.cartesia
+import velvetdub.providers.demucs
 import velvetdub.providers.fake
 import velvetdub.providers.gemini
 import velvetdub.providers.openai_decisions
 import velvetdub.providers.wordlist  # noqa: F401  (imports register the providers)
 from velvetdub.config.settings import Settings
-from velvetdub.errors import ConfigError
 from velvetdub.providers import registry
 from velvetdub.providers.base import (
     FrameJudge,
@@ -57,14 +58,8 @@ class ProviderSet:
 
     @cached_property
     def separator(self) -> SourceSeparator:
-        name = self._settings.separation_provider
-        if not name:
-            raise ConfigError("SEPARATION_PROVIDER is not set (needed for dubbing).")
-        return registry.separators.create(name, self._settings)
+        return registry.separators.create(self._settings.separation_provider, self._settings)
 
     @cached_property
     def synthesizer(self) -> SpeechSynthesizer:
-        name = self._settings.tts_provider
-        if not name:
-            raise ConfigError("TTS_PROVIDER is not set (needed for dubbing).")
-        return registry.synthesizers.create(name, self._settings)
+        return registry.synthesizers.create(self._settings.tts_provider, self._settings)

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react'
 import type { ReviewFilterItem, ReviewInfo } from '@/api/types'
-import { FILTERS, filterWords } from '@/lib/filters'
+import { PICTURE_FILTERS, filterWords } from '@/lib/filters'
 import { categoryLabel, formatTime } from '@/lib/format'
 import { EventTable } from './EventTable'
 import { FilterTimeline } from './FilterTimeline'
@@ -76,7 +76,9 @@ export function CutsReview({
   const scanned = info.scanned_categories
   const duration = info.duration
   const count = (categories: string[]) => filters.filter((f) => categories.includes(f.category)).length
-  const sceneIds: string[] = FILTERS.map((f) => f.id)
+  const sceneIds: string[] = PICTURE_FILTERS.map((f) => f.id)
+  // A title made before swearing was a choice has no answer here: it was always checked.
+  const swearingChecked = info.swearing_checked !== false
 
   return (
     <>
@@ -103,7 +105,7 @@ export function CutsReview({
                 <Tabs
                   level="inner"
                   label="Kind of scene"
-                  tabs={FILTERS.map((f) => ({
+                  tabs={PICTURE_FILTERS.map((f) => ({
                     id: f.id,
                     label: f.label,
                     count: count([f.id]),
@@ -128,6 +130,11 @@ export function CutsReview({
             count: count(WORD_TABS),
             content: (
               <Panel id="swearing-heading" title="Swearing">
+                {!swearingChecked ? (
+                  <p className="meta m-0">
+                    Not checked for swearing. Choose it when you add a title to have the dialogue checked.
+                  </p>
+                ) : (
                 <Tabs
                   level="inner"
                   label="Kind of language"
@@ -145,6 +152,7 @@ export function CutsReview({
                     ),
                   }))}
                 />
+                )}
               </Panel>
             ),
           },

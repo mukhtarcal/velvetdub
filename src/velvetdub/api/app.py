@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from velvetdub import __version__
@@ -39,6 +40,17 @@ def create_app(container: Container | None = None) -> FastAPI:
     app = FastAPI(title="Velvet Dub", version=__version__, lifespan=lifespan)
     app.state.container = resolved
     app.add_middleware(LocalOnlyGuard, allowed_hosts=resolved.settings.allowed_hosts)
+    # Added last, so it answers first. Only the web app's own addresses are approved, and only for
+    # POST (the film upload, the one request sent straight to the API instead of through the web
+    # app's proxy). Every other page is still refused, and the guard above still demands the
+    # custom header, so nothing here lets another site drive the API.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=resolved.settings.web_origins,
+        allow_methods=["POST"],
+        allow_headers=["X-Velvetdub-Client", "Content-Type"],
+        allow_credentials=False,
+    )
 
     @app.exception_handler(VelvetDubError)
     async def handle_domain_error(request: Request, exc: VelvetDubError) -> JSONResponse:

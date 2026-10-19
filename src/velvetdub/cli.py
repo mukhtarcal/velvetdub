@@ -12,6 +12,7 @@ from velvetdub.container import build_container
 from velvetdub.domain.filtering import FilterCategory
 from velvetdub.domain.user import LOCAL_USER
 from velvetdub.errors import StageFailedError, VelvetDubError
+from velvetdub.features.dubbing.support import dubbing_languages
 from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.features.scene_filtering.factory import build_scene_scanner, scannable_categories
 from velvetdub.pipeline.context import ProcessOptions
@@ -42,14 +43,15 @@ def doctor() -> None:
     settings = Settings()
     ok = True
 
-    def report(label: str, passed: bool, detail: str = "") -> None:
+    def report(label: str, passed: bool, detail: str = "", *, optional: bool = False) -> None:
         nonlocal ok
-        ok = ok and passed
-        mark = (
-            typer.style("ok  ", fg=typer.colors.GREEN)
-            if passed
-            else typer.style("MISS", fg=typer.colors.RED)
-        )
+        ok = ok and (passed or optional)
+        if passed:
+            mark = typer.style("ok  ", fg=typer.colors.GREEN)
+        elif optional:
+            mark = typer.style("skip", fg=typer.colors.YELLOW)
+        else:
+            mark = typer.style("MISS", fg=typer.colors.RED)
         typer.echo(f"[{mark}] {label}{(' - ' + detail) if detail else ''}")
 
     for binary in ("ffmpeg", "ffprobe"):
@@ -71,6 +73,17 @@ def doctor() -> None:
             report(f"{label}: {name}", True, provider.identity)
         except VelvetDubError as exc:
             report(f"{label}: {name}", False, str(exc))
+
+    # Dubbing is optional: not being set up is reported, but does not fail the check.
+    dubbing: dict[str, tuple[Callable[[], Any], str]] = {
+        "dubbing, voice separation": (lambda: providers.separator, settings.separation_provider),
+        "dubbing, speech": (lambda: providers.synthesizer, settings.tts_provider),
+    }
+    for label, (get, name) in dubbing.items():
+        try:
+            report(f"{label}: {name}", True, get().identity, optional=True)
+        except VelvetDubError as exc:
+            report(f"{label}: {name}", False, str(exc), optional=True)
 
     typer.echo(f"data dir: {settings.data_path}")
     raise typer.Exit(code=0 if ok else 1)
@@ -97,11 +110,19 @@ def process(
     subs: Annotated[
         str, typer.Option(help="Comma-separated subtitle languages (default: none)")
     ] = "",
+    dub: Annotated[
+        str,
+        typer.Option(
+            help="Comma-separated languages to dub into, in copies of each speaker's voice "
+            "(default: none; needs `uv sync --group dubbing` and CARTESIA_API_KEY)"
+        ),
+    ] = "",
     filters: Annotated[
         str,
         typer.Option(
-            help="Comma-separated picture filters to scan for: nudity, sexual_content, "
-            "scary_scenes, violence (default: none)"
+            help="Comma-separated filters to run: nudity, sexual_content, scary_scenes, "
+            "violence (scanned in the picture) and swearing (found from the dialogue). "
+            "Only what is chosen is processed (default: none)"
         ),
     ] = "",
     name: Annotated[str | None, typer.Option(help="Title name (default: file name)")] = None,
@@ -109,25 +130,41 @@ def process(
 ) -> None:
     """Add a film and run the pipeline (re-running skips finished stages)."""
     languages = [lang.strip() for lang in subs.split(",") if lang.strip()]
+    dub_languages = [lang.strip() for lang in dub.split(",") if lang.strip()]
     try:
         categories = [FilterCategory(c.strip()) for c in filters.split(",") if c.strip()]
     except ValueError as exc:
         typer.secho(f"--filters: {exc}", fg=typer.colors.RED)
         raise typer.Exit(code=1) from exc
-    picture_only = [c for c in categories if c not in PICTURE_CATEGORIES]
-    if picture_only:
-        typer.secho(f"--filters: {picture_only[0].value} can't be scanned", fg=typer.colors.RED)
+    offered = (*PICTURE_CATEGORIES, FilterCategory.SWEARING)
+    not_offered = [c for c in categories if c not in offered]
+    if not_offered:
+        typer.secho(f"--filters: {not_offered[0].value} can't be chosen", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
     try:
         container = build_container()
-        unsupported = [c for c in categories if c not in scannable_categories(container.settings)]
+        scanned = [c for c in categories if c in PICTURE_CATEGORIES]
+        unsupported = [c for c in scanned if c not in scannable_categories(container.settings)]
         if unsupported:
             typer.secho(
                 f"This scanner can't check for {unsupported[0].value.replace('_', ' ')}.",
                 fg=typer.colors.RED,
             )
             raise typer.Exit(code=1)
+        if dub_languages:
+            available = dubbing_languages(container.providers)
+            if not available:
+                typer.secho(
+                    "Dubbing isn't set up: add CARTESIA_API_KEY to .env and run "
+                    "`uv sync --group dubbing`.",
+                    fg=typer.colors.RED,
+                )
+                raise typer.Exit(code=1)
+            missing = [lang for lang in dub_languages if lang not in available]
+            if missing:
+                typer.secho(f"Dubbing can't speak: {', '.join(missing)}", fg=typer.colors.RED)
+                raise typer.Exit(code=1)
         # The CLI is single-user by nature; the API resolves the user per request instead.
         if title_id is None:
             manifest = container.store.create(LOCAL_USER.id, name or file.stem, file)
@@ -136,7 +173,11 @@ def process(
         typer.echo(f"Title {manifest.title_id}: {manifest.name}")
         container.process(
             manifest,
-            ProcessOptions(subtitle_languages=languages, filter_categories=categories),
+            ProcessOptions(
+                subtitle_languages=languages,
+                filter_categories=categories,
+                dub_languages=dub_languages,
+            ),
             ConsoleObserver(),
         )
     except StageFailedError as exc:

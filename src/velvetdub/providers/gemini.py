@@ -97,9 +97,10 @@ class GeminiVideoAnalyzer(VideoAnalyzer):
             answer: list[str] = []
             usage: types.GenerateContentResponseUsageMetadata | None = None
             block_reason: object = None
+            contents: list[types.PartUnionDict] = [ready, instructions]
             for chunk in self._client.models.generate_content_stream(
                 model=self.model or "",
-                contents=[ready, instructions],
+                contents=contents,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
                     response_schema=schema,

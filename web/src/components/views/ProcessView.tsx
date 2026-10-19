@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { AnimatePresence, motion } from 'motion/react'
 import { Check, LoaderCircle, Minus, X } from 'lucide-react'
 import { api } from '@/api/client'
-import { PIPELINE_STAGES, type JobState, type ProcessChoices, type StageProgress, type TitleSummary } from '@/api/types'
+import { type Choices, type JobState, type ProcessChoices, type StageProgress, type TitleSummary } from '@/api/types'
 import { Proscenium } from '@/components/brand/Proscenium'
 import { TitleReveal } from '@/components/brand/TitleReveal'
 import { Harbor } from '@/components/brand/Harbor'
@@ -16,7 +16,7 @@ import { useAsync } from '@/hooks/useAsync'
 import { takeAutostart } from '@/lib/autostart'
 import { formatDuration } from '@/lib/format'
 import { POLL_MS } from '@/lib/polling'
-import { cardStatus, isActive, jobPercent, retryChoices } from '@/lib/titles'
+import { cardStatus, isActive, jobPercent, retryChoices, shownStages, wantsDub } from '@/lib/titles'
 import { cn } from '@/lib/utils'
 import { EASE } from '@/lib/motion'
 
@@ -93,7 +93,13 @@ export function ProcessView({ titleId }: { titleId: string }) {
   const done = job?.status === 'done' || alreadyDone
   const failed = job?.status === 'failed'
   const idle = !job && !!title && !alreadyDone && !autostart
-  const percent = job ? jobPercent(job) : 0
+  // Only the steps that the choices make work to do are listed: the choices made just now or, on
+  // a later visit, what the title was last processed with. A dub adds its own steps.
+  const choices: Choices | null = autostart ?? title?.choices ?? null
+  const dubbing = wantsDub(choices)
+  const stages = shownStages(choices)
+  const skipsAsked = (choices?.filter_categories ?? []).length > 0
+  const percent = job ? jobPercent(job, stages) : 0
 
   const review = useAsync(() => (done ? api.review(titleId) : Promise.resolve(null)), [done, titleId])
   const found = review.data ? review.data.filters.filter((f) => !f.kept).length : 0
@@ -128,8 +134,11 @@ export function ProcessView({ titleId }: { titleId: string }) {
       {job && !done && (
         <div className="flex flex-col gap-6">
           <Progress value={percent} aria-label="Processing progress" />
-          <ol className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6">
-            {PIPELINE_STAGES.map((stage, i) => {
+          <ol
+            hidden={stages.length === 0}
+            className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:grid-cols-3 lg:grid-cols-6"
+          >
+            {stages.map((stage, i) => {
               const state = job.stages[stage.id] ?? 'pending'
               return (
                 <motion.li
@@ -168,6 +177,7 @@ export function ProcessView({ titleId }: { titleId: string }) {
           ) : (
             <p className="meta m-0">
               You can leave this page. The film keeps processing and shows up in your library when it is ready.
+              {dubbing && ' The dub is the slowest part, and a whole film can take a good while.'}
             </p>
           )}
         </div>
@@ -194,7 +204,9 @@ export function ProcessView({ titleId }: { titleId: string }) {
             <span className="marquee-label">Before the curtain goes up</span>
             <p className="m-0 max-w-[720px] text-[20px] leading-[31px] text-ink-soft">
               {found === 0
-                ? 'We found nothing to skip.'
+                ? choices && !skipsAsked
+                  ? 'You chose nothing to skip, so the film plays as it is.'
+                  : 'We found nothing to skip.'
                 : `We found ${found} ${found === 1 ? 'moment' : 'moments'} to skip${
                     review.data && review.data.runtime_removed > 0
                       ? `, ${formatDuration(review.data.runtime_removed)} in all`

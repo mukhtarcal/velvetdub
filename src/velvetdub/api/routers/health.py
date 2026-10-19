@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from velvetdub import __version__
 from velvetdub.api.deps import ContainerDep
 from velvetdub.domain.filtering import FilterCategory
+from velvetdub.features.dubbing.support import dubbing_languages
 from velvetdub.features.scene_filtering.factory import scannable_categories
 
 router = APIRouter(tags=["health"])
@@ -16,9 +17,14 @@ def health() -> dict[str, str]:
 
 class Capabilities(BaseModel):
     scan_categories: list[FilterCategory]
+    # Languages a dub can be made in; empty when this install can't dub yet.
+    dub_languages: list[str]
 
 
 @router.get("/capabilities")
 def capabilities(container: ContainerDep) -> Capabilities:
-    """What this install can do, so the UI can grey out choices the chosen scanner can't check."""
-    return Capabilities(scan_categories=list(scannable_categories(container.settings)))
+    """What this install can do, so the UI can grey out choices that can't be made."""
+    return Capabilities(
+        scan_categories=list(scannable_categories(container.settings)),
+        dub_languages=dubbing_languages(container.providers),
+    )

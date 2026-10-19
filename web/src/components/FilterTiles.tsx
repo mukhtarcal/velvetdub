@@ -1,37 +1,38 @@
 'use client'
 
 import { AnimatePresence, motion } from 'motion/react'
-import type { ScanCategory } from '@/api/types'
+import type { FilterChoice } from '@/api/types'
 import { FILTERS, filterWords } from '@/lib/filters'
 import { joinLabels } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-/** Four toggle tiles, one per picture filter. The state is always written out, never colour only.
- * `available` lists what the scanner can check; the rest are greyed out with a plain note. */
+/** One toggle tile per filter: the four picture filters, then swearing. The state is always
+ * written out, never colour only. `available` lists what can be checked; the rest are greyed out
+ * with a plain note. */
 export function FilterTiles({
   value,
   onChange,
   available,
   disabled,
 }: {
-  value: ScanCategory[]
-  onChange: (next: ScanCategory[]) => void
-  available: ScanCategory[]
+  value: FilterChoice[]
+  onChange: (next: FilterChoice[]) => void
+  available: FilterChoice[]
   disabled?: boolean
 }) {
   const missing = FILTERS.filter((f) => !available.includes(f.id))
 
-  function toggle(id: ScanCategory) {
+  function toggle(id: FilterChoice) {
     onChange(value.includes(id) ? value.filter((c) => c !== id) : [...value, id])
   }
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4" role="group" aria-label="What to skip">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3" role="group" aria-label="What to skip or mute">
         {FILTERS.map((filter) => {
           const unavailable = !available.includes(filter.id)
           const on = !unavailable && value.includes(filter.id)
-          const state = unavailable ? 'Not available' : on ? 'Will be skipped' : 'Plays as is'
+          const state = unavailable ? 'Not available' : on ? `Will be ${filter.result}` : 'Plays as is'
           return (
             <button
               key={filter.id}

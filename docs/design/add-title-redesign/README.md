@@ -20,7 +20,7 @@ The `.dc.html` files are design-canvas source, not ordinary web pages: opening o
 1. **No sidebar.** A slim velvet bar across the top with the wordmark and two links: **Add a title** and **Library**. Nothing else in the menu for now.
 2. **Add a title is the home page.** Library is the second page.
 3. On Add a title, **filters and subtitles are both optional** and sit in **two separate sections**. Filters come first.
-4. You choose which of **four filters** to scan for: Nudity, Sex scenes, Scary scenes, Violence.
+4. You choose which of **five filters** to run: Nudity, Sex scenes, Scary scenes, Violence, Swearing. **Only what you choose is processed**: with nothing chosen the film is just stored.
 5. **Processing** shows a stage whose curtains stay shut while the film is processed and open when it is done.
 6. **Library** cards show your choices and live status. A title still processing shows closed curtains over its picture.
 
@@ -48,8 +48,8 @@ Step line: **"Add a title · step 1 of 2"**. Title: **"Add a title"**. A hairlin
 ### Section "Filters" (optional)
 - Panel: `surface-deep` fill with a 4px `velvet` top rule, the brand's filter-panel treatment. 28px padding.
 - Heading **"Filters"** in Limelight, colour `signal`, as BRAND.md specifies for the Filters heading. "Optional" in `muted` at the right.
-- Intro: "Choose what to skip. We scan the picture for these and show you every cut before you watch. You can keep any of them in."
-- Four toggle tiles in a grid (`repeat(auto-fit, minmax(210px, 1fr))`, 12px gap). Each tile is a `<button aria-pressed>` with a checkbox square, the name, a one-line hint, and a state word:
+- Intro: "Choose what to skip or mute. Only what you choose is processed, and we show you every cut before you watch. You can keep any of them in."
+- Five toggle tiles in a grid (3 columns on wide screens, 12px gap). Each tile is a `<button aria-pressed>` with a checkbox square, the name, a one-line hint, and a state word:
 
   | Tile | Category id | Hint |
   |---|---|---|
@@ -57,12 +57,15 @@ Step line: **"Add a title · step 1 of 2"**. Title: **"Add a title"**. A hairlin
   | Sex scenes | `sexual_content` | Sex scenes and sexual moments on screen. |
   | Scary scenes | `scary_scenes` | Jump scares and frightening images. |
   | Violence | `violence` | Fights, weapons, blood and injury. |
+  | Swearing | `swearing` | Swearing and crude words in the dialogue. |
+
+  Swearing is found from the words in the dialogue, not the picture, and it is always on offer (it needs no scanner). The first four are scanned in the picture and can be greyed out by the scanner.
 
   - Off: transparent fill, 2px `line` border, empty square (`panel` fill, `border-control` edge), state word **"Plays as is"** in `faint`.
-  - On: `panel` fill, 2px `velvet` border, square filled `velvet` with an ivory 2px-stroke check, state word **"Will be skipped"** in ink.
+  - On: `panel` fill, 2px `velvet` border, square filled `velvet` with an ivory 2px-stroke check, state word **"Will be skipped"** in ink (**"Will be muted"** for Swearing, since words are muted, not skipped).
   - Selection uses velvet, not signal. Signal stays reserved for a filter that is acting during playback. The state word means the state is never shown by colour alone.
   - Default: none selected.
-- Footnote in `muted`: "Swearing in the dialogue is found from the words themselves, so it needs no scan. Once the video is done processing you can remove whatever swearing you choose."
+- Footnote in `muted`: "Scenes are found by scanning the picture. Swearing is found from the words in the dialogue, so choosing it means the dialogue is transcribed. Choose nothing and the film is only stored."
 
 ### Section "Subtitles" (optional)
 - Outlined box (1px `line` border, no fill), so it reads as clearly separate from the filter panel. Limelight heading **"Subtitles"** in ink, "Optional" at the right.
@@ -71,13 +74,21 @@ Step line: **"Add a title · step 1 of 2"**. Title: **"Add a title"**. A hairlin
 - With "No subtitles": "You can add subtitles later from the title page." **Open question:** there is no title page yet. Either build a way to add subtitles to a processed title, or drop this line.
 - This replaces today's `LanguagePicker` rule that one language must always stay chosen.
 
+### Section "Dubbing" (optional)
+- Built the same way as Subtitles, directly under it: Limelight heading **"Dubbing"** with "Optional" at the right, and a segmented control **No dubbing** | **Add dubbing** (radio group, default **No dubbing**).
+- With "Add dubbing": the label "Languages", then language chips (multi-select, `aria-pressed`, chosen = velvet fill). **Only languages the voices can speak are shown**, taken from `dub_languages` in `/api/capabilities` and ordered as in `LANGUAGES`. Selecting zero is allowed while editing, but then "Choose at least one language, or pick No dubbing." appears and submit is disabled ("Choose a dubbing language first.").
+- Below the chips, in `muted`: "A dub speaks in a copy of each person's own voice, with the music and sound effects kept. It is the slowest step and uses credits with the voice service. A film is never dubbed into the language it is already in."
+- **When this computer can't dub** (no voice service key, or the dubbing install is missing; `dub_languages` is empty): the control is disabled and reads "Dubbing isn't set up on this computer yet." in `ink-soft`. Nothing is shown about it until the server has answered, so it never claims dubbing is missing while still asking.
+- Subtitles and dubbing are independent: the same language can be chosen for both (a dub plus subtitles in the film's own language is the common case).
+- Summary gets a third row, **Dubbing:** the chosen languages ("Arabic and Spanish"), or "None". With a dub chosen, the hint beside the button reads "Next, we upload the film and start processing. The dub is the slowest part."
+
 ### Summary and submit
 - Hairline above, then a two-row list:
-  - **Skip:** the chosen filters joined with commas and "and" ("Nudity and sex scenes"), or "Nothing. The film plays as is."
+  - **Filters:** the chosen filters joined with commas and "and" ("Nudity and swearing"), or "Nothing. The film plays as is."
   - **Subtitles:** the chosen languages ("English and Spanish"), or "None".
 - Primary button **Upload and continue**, the only primary button on the screen.
   - Disabled (`velvet-deep` fill, `muted` text) when there is no file, no name, or subtitles are on with no language chosen.
-  - The hint beside it says why: "Choose a file first." / "Choose a subtitle language first.". When submit is enabled it reads "Next, we upload the film and start the scan."
+  - The hint beside it says why: "Choose a file first." / "Choose a subtitle language first.". When submit is enabled it reads "Next, we upload the film and start processing." With a dub it adds "The dub is the slowest part."; with nothing chosen at all it reads "Next, we upload the film. Nothing else is processed."
 - Uploading keeps today's progress bar and Cancel button.
 
 ## Screen 2: Processing (`Processing.dc.html`)
@@ -133,11 +144,35 @@ Step line: **"<title name> · step 2 of 2"**. Title: **"The projector is warming
 
 ## Behind the screens
 
+### Dubbing adds steps to Processing
+- `ProcessRequest.dub_languages` (default empty). The API refuses a language the voices can't speak, and any dub when dubbing isn't set up, in plain words (HTTP 422).
+- Six steps are added after "Writing subtitles": separating voices from the music, listening to the voices alone, writing the dub script, copying each speaker's voice, recording the dub, mixing the dub into the film. **They are listed on Processing, and counted in progress, only for a title that asked for a dub**; for any other title they do nothing and are not shown. A title processed before dubbing existed stays "ready".
+- While a dub is made, the "You can leave this page" note adds: "The dub is the slowest part, and a whole film can take a good while."
+- Library cards add "Dubbed in Arabic" to the "what you chose" line, only when there is a dub.
+- The dub appears in the player's existing Audio selector as "<Language> dub".
+
 ### Subtitles become optional
 - `ProcessRequest.subtitle_languages` in `api/routers/titles.py`: allow an empty list (drop `min_length=1`, default to `[]`).
 - `ProcessOptions.subtitle_languages` in `pipeline/context.py`: default to `[]`. The CLI keeps `--subs` and can default to none.
 - Check that `TranslateStage` and `SubtitlesStage` handle zero languages. With no outputs, make sure the runner neither loops nor fails. Its up-to-date check uses `outputs_exist`, which is true for an empty list, so it should skip.
-- Transcription still always runs: swearing detection needs it.
+- Transcription is no longer always on: it runs only for swearing or subtitles (see "Only what is chosen is run" below).
+
+### Only what is chosen is run
+Nothing runs by default. Each step does work only when a choice needs it, and does nothing (and needs no API key) otherwise:
+
+| Step | Runs when |
+|---|---|
+| Audio extraction, transcription (AssemblyAI) | Swearing or any subtitle language is chosen. A dub alone does not need it: the dub transcribes the separated dialogue itself. |
+| Picture scan (Gemini) | At least one picture filter is chosen |
+| Filter timeline | Always written (empty if nothing was found or chosen); it merges the picture scan and, if Swearing is chosen, the word list |
+| Translation, subtitles | A subtitle language is chosen |
+| Dubbing steps | A dub language is chosen |
+
+- The film's length and its "original" audio track are always recorded (the player and library need them); the track points at the film itself.
+- `swearing_checked` is stored on the title and returned by the review data, so Review says "Not checked for swearing" instead of an empty list. A title made before this is null and reads as checked: it always was.
+- Choosing more later does only the missing work: adding Swearing to a subtitled title redoes just the filter timeline; adding subtitles to a stored-only title extracts, transcribes, translates and writes them.
+- Processing lists only the steps the choices make work to do (none for a stored-only title). Readiness is still judged on every recorded step, so older titles stay "ready".
+- Processing says "You chose nothing to skip, so the film plays as it is." when no filter was chosen, rather than "We found nothing to skip."
 
 ### Filters choose what the picture scan looks for
 - Add `filter_categories: list[FilterCategory]` to `ProcessRequest` and `ProcessOptions`.

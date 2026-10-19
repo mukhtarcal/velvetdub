@@ -7,7 +7,6 @@ from pydantic import BaseModel
 
 from velvetdub.domain.filtering import FilterTimeline
 from velvetdub.domain.usage import TokenUsage
-from velvetdub.features.scene_filtering.categories import in_scan_order
 from velvetdub.features.scene_filtering.factory import build_scene_scanner
 from velvetdub.features.scene_filtering.scanner import ClipScan
 from velvetdub.pipeline.context import PipelineContext
@@ -41,13 +40,13 @@ class VisualScanStage(Stage):
         return [ctx.paths.visual_events]
 
     def config_key(self, ctx: PipelineContext) -> str:
-        categories = in_scan_order(ctx.options.filter_categories)
+        categories = ctx.options.picture_categories
         if not categories:
             return "no-categories"
         return build_scene_scanner(ctx.providers, ctx.settings, categories).config_key(ctx.settings)
 
     def run(self, ctx: PipelineContext) -> None:
-        categories = in_scan_order(ctx.options.filter_categories)
+        categories = ctx.options.picture_categories
         ctx.manifest.scanned_categories = categories
         if not categories:
             write_model(ctx.paths.visual_events, FilterTimeline())

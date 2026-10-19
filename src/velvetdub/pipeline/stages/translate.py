@@ -9,7 +9,7 @@ from velvetdub.storage.artifacts import read_model, write_model
 
 
 class TranslateStage(Stage):
-    """One translation file per target language (subtitle and, later, dub languages).
+    """One translation file per subtitle language (dubs are translated by their own stage).
 
     A target equal to the spoken language is written as an identity translation, so downstream
     stages treat every language the same way.
@@ -18,19 +18,23 @@ class TranslateStage(Stage):
     name = "translate"
 
     def inputs(self, ctx: PipelineContext) -> list[Path]:
-        return [ctx.paths.transcript]
+        return [ctx.paths.transcript] if ctx.options.subtitle_languages else []
 
     def outputs(self, ctx: PipelineContext) -> list[Path]:
-        return [ctx.paths.translation(lang) for lang in ctx.options.target_languages]
+        return [ctx.paths.translation(lang) for lang in ctx.options.subtitle_languages]
 
     def config_key(self, ctx: PipelineContext) -> str:
-        languages = ",".join(ctx.options.target_languages)
+        if not ctx.options.subtitle_languages:
+            return "no-subtitles"
+        languages = ",".join(ctx.options.subtitle_languages)
         return f"{ctx.providers.text_generator.identity}|{languages}"
 
     def run(self, ctx: PipelineContext) -> None:
+        if not ctx.options.subtitle_languages:
+            return
         transcript = read_model(ctx.paths.transcript, Transcript)
         translator = Translator(ctx.providers.text_generator)
-        for language in ctx.options.target_languages:
+        for language in ctx.options.subtitle_languages:
             if language == transcript.language:
                 translation = Translation(
                     language=language,

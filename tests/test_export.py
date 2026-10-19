@@ -217,7 +217,9 @@ def test_a_real_copy_loses_the_cut_scene_and_silences_the_word(tmp_path: Path) -
 @pytest.fixture
 def processed(container: Container, source_file: Path) -> Manifest:
     manifest = container.store.create("local", "Wolf: of/Wall Street", source_file)
-    container.process(manifest, ProcessOptions(filter_categories=list(PICTURE_CATEGORIES)))
+    container.process(
+        manifest, ProcessOptions(filter_categories=[*PICTURE_CATEGORIES, FilterCategory.SWEARING])
+    )
     return manifest
 
 

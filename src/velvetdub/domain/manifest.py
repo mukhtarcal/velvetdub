@@ -45,6 +45,7 @@ class Choices(BaseModel):
 
     filter_categories: list[FilterCategory] = Field(default_factory=list)
     subtitle_languages: list[str] = Field(default_factory=list)
+    dub_languages: list[str] = Field(default_factory=list)
 
 
 def _now() -> datetime:
@@ -66,6 +67,9 @@ class Manifest(BaseModel):
     # What the picture scan actually looked for (None until it has run). A detection list that is
     # empty means "nothing found" only for these categories.
     scanned_categories: list[FilterCategory] | None = None
+    # Whether the dialogue was checked for swearing. None for titles made before this was a
+    # choice: they were always checked.
+    swearing_checked: bool | None = None
 
     def upsert_audio_track(self, track: AudioTrack) -> None:
         self.audio_tracks = [t for t in self.audio_tracks if t.id != track.id] + [track]

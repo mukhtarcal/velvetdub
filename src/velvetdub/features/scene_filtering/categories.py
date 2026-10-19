@@ -31,3 +31,10 @@ def in_scan_order(categories: Iterable[FilterCategory]) -> list[FilterCategory]:
     prompt and the scan key the same however the choices were ticked."""
     chosen = set(categories)
     return [c for c in PICTURE_CATEGORIES if c in chosen]
+
+
+def in_choice_order(categories: Iterable[FilterCategory]) -> list[FilterCategory]:
+    """Everything that can be chosen when a title is added, in a fixed order: the four picture
+    categories, then swearing (found from the words, not the picture)."""
+    chosen = set(categories)
+    return [c for c in (*PICTURE_CATEGORIES, FilterCategory.SWEARING) if c in chosen]

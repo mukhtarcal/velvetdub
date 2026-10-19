@@ -68,6 +68,33 @@ function renderPage() {
   )
 }
 
+describe('ReviewPage swearing', () => {
+  const openSwearing = async () => {
+    renderPage()
+    const tabs = await screen.findByRole('tablist', { name: 'What to review' })
+    fireEvent.click(within(tabs).getByRole('tab', { name: /Swearing/ }))
+  }
+
+  it('says swearing was not checked when it was not chosen, instead of showing an empty list', async () => {
+    vi.mocked(api.review).mockResolvedValue({ ...review, filters: [], swearing_checked: false })
+    await openSwearing()
+    expect(await screen.findByText(/Not checked for swearing/)).toBeTruthy()
+    expect(screen.queryByText('Nothing found.')).toBeNull()
+  })
+
+  it('treats an older title, which has no answer, as checked', async () => {
+    await openSwearing() // the shared fixture has no swearing_checked at all
+    expect(screen.queryByText(/Not checked for swearing/)).toBeNull()
+  })
+
+  it('shows what was found when swearing was checked', async () => {
+    vi.mocked(api.review).mockResolvedValue({ ...review, swearing_checked: true })
+    await openSwearing()
+    expect(screen.queryByText(/Not checked for swearing/)).toBeNull()
+    expect(screen.getByRole('tablist', { name: 'Kind of language' })).toBeTruthy()
+  })
+})
+
 describe('ReviewPage tabs', () => {
   it('reviews scenes, swearing and translation each on its own tab', async () => {
     renderPage()

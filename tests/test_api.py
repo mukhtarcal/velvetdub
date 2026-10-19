@@ -80,7 +80,11 @@ def test_a_title_can_be_processed_with_no_subtitles_and_no_filters(
     assert wait_until_finished(client, manifest.title_id)["status"] == "done"
 
     title = client.get("/api/titles").json()[0]
-    assert title["choices"] == {"filter_categories": [], "subtitle_languages": []}
+    assert title["choices"] == {
+        "filter_categories": [],
+        "subtitle_languages": [],
+        "dub_languages": [],
+    }
     assert title["scanned_categories"] == []
     assert client.get(f"/api/titles/{manifest.title_id}").json()["subtitle_tracks"] == []
 
@@ -102,8 +106,8 @@ def test_the_chosen_filters_are_scanned_and_listed_on_the_title(
     assert review["scanned_categories"] == ["nudity", "violence"]
 
 
-@pytest.mark.parametrize("category", ["swearing", "drugs_and_drinking", "nonsense"])
-def test_only_the_four_picture_filters_can_be_chosen(
+@pytest.mark.parametrize("category", ["drugs_and_drinking", "blasphemy", "nonsense"])
+def test_only_the_offered_filters_can_be_chosen(
     container: Container, source_file: Path, category: str
 ) -> None:
     manifest = container.store.create("local", "Movie", source_file)

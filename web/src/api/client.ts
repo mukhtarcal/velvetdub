@@ -56,6 +56,17 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown } =
 
 const enc = encodeURIComponent
 
+// The port `vd serve` listens on (the same one next.config.ts forwards /api to).
+const API_PORT = 8765
+
+/** Where the browser sends a film. Not through the web app's /api proxy: Next.js copies a proxied
+ * request body into memory (10 MB at most, and anything more is cut off), so a film sent that way
+ * never arrives whole. The same host name as the page is used, so `localhost` and `127.0.0.1`
+ * both work. The API approves the web app's own address for this one request (see `create_app`). */
+export function uploadUrl(location: Pick<Location, 'protocol' | 'hostname'>, name: string, filename: string): string {
+  return `${location.protocol}//${location.hostname}:${API_PORT}/api/titles?name=${enc(name)}&filename=${enc(filename)}`
+}
+
 export const api = {
   listTitles: () => request<TitleSummary[]>('/titles'),
   /** One title's summary. The list is short and local, so this filters it rather than adding a route. */
@@ -102,7 +113,8 @@ export const api = {
     (mask ? '&mask=true' : ''),
 }
 
-/** Upload a film as the raw request body so a multi-gigabyte file is streamed, not buffered. */
+/** Upload a film as the raw request body so a multi-gigabyte file is streamed, not buffered.
+ * It goes straight to the API (see `uploadUrl`). */
 export function uploadTitle(
   file: File,
   name: string,
@@ -111,7 +123,7 @@ export function uploadTitle(
 ): Promise<TitleSummary> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
-    xhr.open('POST', `/api/titles?name=${enc(name)}&filename=${enc(file.name)}`)
+    xhr.open('POST', uploadUrl(window.location, name, file.name))
     for (const [key, value] of Object.entries(CLIENT_HEADER)) xhr.setRequestHeader(key, value)
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress(event.loaded / event.total)

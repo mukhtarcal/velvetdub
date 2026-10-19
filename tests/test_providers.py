@@ -24,9 +24,11 @@ def test_missing_key_names_the_variable(settings: Settings) -> None:
         _ = ProviderSet(real).transcriber
 
 
-def test_phase2_providers_are_optional(settings: Settings) -> None:
-    with pytest.raises(ConfigError, match="TTS_PROVIDER"):
-        _ = ProviderSet(settings).synthesizer
+def test_dubbing_providers_are_created_only_when_asked_for(settings: Settings) -> None:
+    # A missing voice-service key must not matter until a dub is actually requested.
+    real = settings.model_copy(update={"tts_provider": "cartesia"})
+    with pytest.raises(ConfigError, match="CARTESIA_API_KEY"):
+        _ = ProviderSet(real).synthesizer
 
 
 def test_duplicate_registration_is_rejected() -> None:

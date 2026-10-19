@@ -5,8 +5,8 @@ The server only listens on localhost, but a malicious page could still try to ta
 * DNS rebinding makes the browser send requests to localhost under the attacker's hostname,
   so the Host header must be one we expect.
 * A cross-site page can send simple POSTs without a preflight, so every state-changing request
-  must carry a custom header. A cross-site page cannot add one without our (absent) CORS
-  approval.
+  must carry a custom header. A cross-site page cannot add one without our CORS approval, which
+  is given only to the web app's own addresses (see `create_app`).
 """
 
 from collections.abc import Awaitable, Callable

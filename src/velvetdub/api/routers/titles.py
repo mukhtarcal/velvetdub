@@ -8,7 +8,9 @@ from starlette.concurrency import run_in_threadpool
 
 from velvetdub.api.deps import ContainerDep, CurrentUser
 from velvetdub.domain.filtering import FilterCategory
+from velvetdub.domain.languages import language_name
 from velvetdub.domain.manifest import Choices, Manifest
+from velvetdub.features.dubbing.support import dubbing_languages
 from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.features.scene_filtering.factory import scannable_categories
 from velvetdub.pipeline.context import ProcessOptions
@@ -31,19 +33,21 @@ class TitleSummary(BaseModel):
 
 
 class ProcessRequest(BaseModel):
-    """Both lists may be empty: no subtitles, and nothing to scan the picture for."""
+    """Every list may be empty. Only what is chosen is run: with nothing chosen the film is just
+    stored. `filter_categories` takes the four picture categories and swearing."""
 
     subtitle_languages: list[str] = Field(default_factory=list)
     filter_categories: list[FilterCategory] = Field(default_factory=list)
+    dub_languages: list[str] = Field(default_factory=list)
     source_language: str | None = None
 
     @field_validator("filter_categories")
     @classmethod
-    def _picture_categories_only(cls, value: list[FilterCategory]) -> list[FilterCategory]:
-        # Swearing is found from the words and is not chosen here; the rest are not offered yet.
+    def _offered_filters_only(cls, value: list[FilterCategory]) -> list[FilterCategory]:
+        # The four picture categories and swearing; the rest are not offered yet.
         for category in value:
-            if category not in PICTURE_CATEGORIES:
-                raise ValueError(f"'{category.value}' is not something the picture scan checks.")
+            if category not in (*PICTURE_CATEGORIES, FilterCategory.SWEARING):
+                raise ValueError(f"'{category.value}' is not something that can be chosen.")
         return value
 
 
@@ -102,7 +106,9 @@ def process_title(
     title_id: str, body: ProcessRequest, container: ContainerDep, user: CurrentUser
 ) -> JobState:
     manifest = container.store.get(user.id, title_id)
-    unsupported = set(body.filter_categories) - set(scannable_categories(container.settings))
+    # Swearing is found from the words, not scanned, so only picture categories need a scanner.
+    picture = set(body.filter_categories) & set(PICTURE_CATEGORIES)
+    unsupported = picture - set(scannable_categories(container.settings))
     if unsupported:
         raise HTTPException(
             status_code=422,
@@ -110,9 +116,20 @@ def process_title(
             + " or ".join(sorted(c.value.replace("_", " ") for c in unsupported))
             + ".",
         )
+    if body.dub_languages:
+        available = dubbing_languages(container.providers)
+        if not available:
+            raise HTTPException(
+                status_code=422, detail="Dubbing isn't set up on this computer yet."
+            )
+        unsupported_dubs = [lang for lang in body.dub_languages if lang not in available]
+        if unsupported_dubs:
+            names = " and ".join(language_name(lang) for lang in unsupported_dubs)
+            raise HTTPException(status_code=422, detail=f"Dubbing can't speak {names}.")
     options = ProcessOptions(
         subtitle_languages=body.subtitle_languages,
         filter_categories=body.filter_categories,
+        dub_languages=body.dub_languages,
         source_language=body.source_language,
     )
     return container.jobs.submit(manifest, options)

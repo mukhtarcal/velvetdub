@@ -4,17 +4,28 @@ Select with e.g. TRANSCRIPTION_PROVIDER=fake.
 """
 
 import re
+import wave
 from collections.abc import Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from velvetdub.config.settings import Settings
+from velvetdub.domain.dubbing import LINE_SAMPLE_RATE, SeparatedStems, SynthesisRequest, Voice
 from velvetdub.domain.frames import FrameJudgement, FrameQuestion
 from velvetdub.domain.transcript import Segment, Transcript, Word
-from velvetdub.providers.base import FrameJudge, TextGenerator, Transcriber, VideoAnalyzer
+from velvetdub.providers.base import (
+    FrameJudge,
+    SourceSeparator,
+    SpeechSynthesizer,
+    TextGenerator,
+    Transcriber,
+    VideoAnalyzer,
+)
 from velvetdub.providers.registry import (
     frame_judges,
+    separators,
+    synthesizers,
     text_generators,
     transcribers,
     video_analyzers,
@@ -45,7 +56,8 @@ class FakeTranscriber(Transcriber):
 
 class FakeTextGenerator(TextGenerator):
     """Answers the translation prompt offline: every numbered line comes back as '[lang] text'.
-    It relies on the prompt's 'Target language: xx' line and '[id] text' lines."""
+    It relies on the prompt's 'Target language: xx' line and '[id] text' lines (a leading
+    '(2.3s)' timing hint is dropped)."""
 
     name = "fake"
 
@@ -54,7 +66,9 @@ class FakeTextGenerator(TextGenerator):
         language = target.group(1) if target else "xx"
         lines = [
             {"id": found.group(1), "text": f"[{language}] {found.group(2)}"}
-            for found in re.finditer(r"^\[(?!context\])([^\]]+)\] (.*)$", prompt, re.MULTILINE)
+            for found in re.finditer(
+                r"^\[(?!context\])([^\]]+)\] (?:\(\d+(?:\.\d+)?s\) )?(.*)$", prompt, re.MULTILINE
+            )
         ]
         return schema.model_validate({"lines": lines})
 
@@ -91,6 +105,72 @@ class FakeFrameJudge(FrameJudge):
     ) -> FrameJudgement:
         flagged = frames[len(frames) // 2].name == "f_00011.jpg" if frames else False
         return FrameJudgement(probabilities={q.name: 0.9 if flagged else 0.0 for q in questions})
+
+
+def write_silence(
+    dest: Path, seconds: float, *, channels: int = 1, rate: int = LINE_SAMPLE_RATE
+) -> None:
+    """A WAV of silence, for fakes and tests."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(dest), "wb") as out:
+        out.setnchannels(channels)
+        out.setsampwidth(2)
+        out.setframerate(rate)
+        out.writeframes(b"\x00\x00" * channels * int(seconds * rate))
+
+
+class FakeSeparator(SourceSeparator):
+    """Writes two short silent stems, as the real one would for a film."""
+
+    name = "fake"
+
+    def separate(self, audio_path: Path, out_dir: Path) -> SeparatedStems:
+        dialogue, background = out_dir / "dialogue.wav", out_dir / "background.wav"
+        write_silence(dialogue, 1.0, channels=2, rate=44100)
+        write_silence(background, 1.0, channels=2, rate=44100)
+        return SeparatedStems(dialogue=dialogue, background=background)
+
+
+class FakeSynthesizer(SpeechSynthesizer):
+    """Speaks every line as silence of a length that follows its text: 0.05 s a character, divided
+    by the speed. Records what it was asked, so tests can count calls."""
+
+    name = "fake"
+    supports_cloning = True
+    max_speed = 1.5
+
+    def __init__(self, model: str | None = None) -> None:
+        super().__init__(model)
+        self.spoken: list[SynthesisRequest] = []
+        self.cloned: list[str] = []
+
+    def languages(self) -> frozenset[str]:
+        return frozenset({"en", "es", "ar"})
+
+    def list_voices(self, language: str | None = None) -> list[Voice]:
+        return [Voice(id="stock", name="Stock")]
+
+    def synthesize(self, request: SynthesisRequest, dest: Path) -> Path:
+        self.spoken.append(request)
+        write_silence(dest, max(0.2, 0.05 * len(request.text)) / request.speed)
+        return dest
+
+    def clone_voice(self, sample: Path, name: str, language: str) -> Voice:
+        self.cloned.append(name)
+        return Voice(id=f"clone-{name}", name=name, language=language)
+
+    def delete_voice(self, voice_id: str) -> None:
+        self.cloned = [n for n in self.cloned if f"clone-{n}" != voice_id]
+
+
+@separators.register("fake")
+def _separator(settings: Settings) -> SourceSeparator:
+    return FakeSeparator()
+
+
+@synthesizers.register("fake")
+def _synthesizer(settings: Settings) -> SpeechSynthesizer:
+    return FakeSynthesizer()
 
 
 @transcribers.register("fake")

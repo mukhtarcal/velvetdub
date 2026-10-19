@@ -21,3 +21,10 @@ TONE_INSTRUCTIONS: dict[TranslationTone, str] = {
         "alternatives."
     ),
 }
+
+# Added when the lines will be spoken aloud over the film (a dub) rather than read as subtitles.
+DUBBING_RULES = """
+These lines will be spoken aloud by a voice actor over the original performance.
+- Each line shows, in brackets, the seconds the original took. Write text a voice can say
+  naturally in about that time: tighter if the target language runs long, never padded.
+- Write numbers, units and abbreviations as words, the way they are said."""

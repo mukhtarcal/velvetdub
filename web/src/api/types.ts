@@ -58,15 +58,23 @@ export interface ReviewInfo {
   filters: ReviewFilterItem[]
   runtime_removed: number
   scanned_categories: string[] | null
+  /** Whether the dialogue was checked for swearing. Absent or null for an older title: it was. */
+  swearing_checked?: boolean | null
 }
 
-/** The four things the picture scan can be asked to look for (swearing needs no scan). */
+/** The four things the picture scan can be asked to look for. */
 export type ScanCategory = 'nudity' | 'sexual_content' | 'scary_scenes' | 'violence'
+
+/** Everything that can be chosen under Filters: the four scanned in the picture, and swearing,
+ * which is found from the words in the dialogue. Only what is chosen is processed. */
+export type FilterChoice = ScanCategory | 'swearing'
 
 /** What was asked for the last time processing started. */
 export interface Choices {
   filter_categories: string[]
   subtitle_languages: string[]
+  /** Languages a dub was asked for. Older titles may not list it. */
+  dub_languages?: string[]
 }
 
 export interface TitleSummary {
@@ -82,11 +90,14 @@ export interface TitleSummary {
 
 export interface ProcessChoices {
   subtitle_languages: string[]
-  filter_categories: ScanCategory[]
+  filter_categories: FilterChoice[]
+  dub_languages: string[]
 }
 
 export interface Capabilities {
   scan_categories: ScanCategory[]
+  /** Languages a dub can be made in; empty when this install can't dub yet. */
+  dub_languages: string[]
 }
 
 export type StageProgress = 'pending' | 'running' | 'done' | 'skipped' | 'failed'
@@ -122,8 +133,13 @@ export interface ScriptLine {
   text: string
 }
 
+export interface StageInfo {
+  id: string
+  label: string
+}
+
 /** Pipeline stages in order, with plain-language labels. */
-export const PIPELINE_STAGES: { id: string; label: string }[] = [
+export const PIPELINE_STAGES: StageInfo[] = [
   { id: 'extract_audio', label: 'Extracting the audio' },
   { id: 'transcribe', label: 'Transcribing the dialogue' },
   { id: 'visual_scan', label: 'Scanning the picture' },
@@ -131,3 +147,18 @@ export const PIPELINE_STAGES: { id: string; label: string }[] = [
   { id: 'build_filters', label: 'Building the filter timeline' },
   { id: 'subtitles', label: 'Writing subtitles' },
 ]
+
+/** The extra steps of a dub. They are listed only for a title that was asked to be dubbed: for
+ * every other title they do nothing, and showing them would only add noise. */
+export const DUBBING_STAGES: StageInfo[] = [
+  { id: 'separate', label: 'Separating voices from the music' },
+  { id: 'dub_transcribe', label: 'Listening to the voices alone' },
+  { id: 'dub_translate', label: 'Writing the dub script' },
+  { id: 'dub_voices', label: 'Copying each speaker’s voice' },
+  { id: 'dub_speech', label: 'Recording the dub' },
+  { id: 'dub_mix', label: 'Mixing the dub into the film' },
+]
+
+export function stagesFor(dubbing: boolean): StageInfo[] {
+  return dubbing ? [...PIPELINE_STAGES, ...DUBBING_STAGES] : PIPELINE_STAGES
+}

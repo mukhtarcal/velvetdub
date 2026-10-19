@@ -4,13 +4,15 @@ import math
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
+from velvetdub.domain.dubbing import LINE_SAMPLE_RATE, Placement
 from velvetdub.domain.export import EditPlan, Span
 from velvetdub.errors import ToolNotFoundError
+from velvetdub.media.dialogue import assemble_dialogue
 from velvetdub.media.smartcut import SmartCutRenderer
 
 
@@ -65,6 +67,24 @@ class MediaTool(ABC):
     @abstractmethod
     def extract_poster(self, source: Path, dest: Path, *, at_seconds: float) -> None:
         """Write one representative picture from near `at_seconds` as a JPEG at `dest`."""
+
+    @abstractmethod
+    def extract_mix(self, source: Path, dest: Path) -> None:
+        """Write the source's sound as a 44.1 kHz stereo 16-bit WAV, for separating voices."""
+
+    @abstractmethod
+    def cut_audio(self, source: Path, spans: Sequence[Span], dest: Path) -> None:
+        """Write the given spans of `source`'s sound, joined in order, as one mono WAV."""
+
+    @abstractmethod
+    def change_tempo(self, source: Path, dest: Path, factor: float) -> None:
+        """Write a spoken line (a line WAV) played `factor` times faster, without changing pitch.
+        The result is in the same format as the input."""
+
+    @abstractmethod
+    def mix_dub(self, lines: Sequence[Placement], background: Path, dest: Path) -> None:
+        """Put the spoken lines at their start times over the background sound, even out the
+        loudness, and write the result as an AAC file at `dest`."""
 
 
 POSTER_WIDTH = 640
@@ -160,6 +180,47 @@ class FFmpegMediaTool(MediaTool):
         command += ["-vf", f"thumbnail={POSTER_CANDIDATES},scale={POSTER_WIDTH}:-2"]
         command += ["-frames:v", "1", "-q:v", "3", str(dest)]
         subprocess.run(command, check=True, capture_output=True)
+
+    def extract_mix(self, source: Path, dest: Path) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        command = [self._ffmpeg, "-y", "-i", str(source), "-vn", "-ac", "2", "-ar", "44100"]
+        command += ["-c:a", "pcm_s16le", str(dest)]
+        subprocess.run(command, check=True, capture_output=True)
+
+    def cut_audio(self, source: Path, spans: Sequence[Span], dest: Path) -> None:
+        if not spans:
+            raise ValueError("There is nothing to cut.")
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        pieces = [
+            f"[0:a]atrim=start={start:.3f}:end={end:.3f},asetpts=PTS-STARTPTS[a{i}];"
+            for i, (start, end) in enumerate(spans)
+        ]
+        joined = "".join(f"[a{i}]" for i in range(len(spans)))
+        graph = "".join(pieces) + f"{joined}concat=n={len(spans)}:v=0:a=1[out]"
+        command = [self._ffmpeg, "-y", "-i", str(source), "-filter_complex", graph]
+        command += ["-map", "[out]", "-ac", "1", "-c:a", "pcm_s16le", str(dest)]
+        subprocess.run(command, check=True, capture_output=True)
+
+    def change_tempo(self, source: Path, dest: Path, factor: float) -> None:
+        command = [self._ffmpeg, "-y", "-i", str(source), "-filter:a", f"atempo={factor:.4f}"]
+        command += ["-ar", str(LINE_SAMPLE_RATE), "-ac", "1", "-c:a", "pcm_s16le", str(dest)]
+        subprocess.run(command, check=True, capture_output=True)
+
+    def mix_dub(self, lines: Sequence[Placement], background: Path, dest: Path) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dialogue = dest.with_name(f"{dest.stem}.dialogue.wav")
+        partial = dest.with_name(f"{dest.stem}.partial{dest.suffix}")
+        try:
+            assemble_dialogue(lines, dialogue)
+            graph = "[1:a]aresample=44100[d];[0:a][d]amix=inputs=2:normalize=0:duration=first,"
+            graph += "loudnorm=I=-16:TP=-1.5:LRA=11"
+            command = [self._ffmpeg, "-y", "-i", str(background), "-i", str(dialogue)]
+            command += ["-filter_complex", graph, "-c:a", "aac", "-b:a", "160k", str(partial)]
+            subprocess.run(command, check=True, capture_output=True)
+            partial.replace(dest)
+        finally:
+            dialogue.unlink(missing_ok=True)
+            partial.unlink(missing_ok=True)
 
     def render_cleaned(
         self, source: Path, dest: Path, plan: EditPlan, on_progress: Callable[[float], None]

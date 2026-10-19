@@ -53,6 +53,8 @@ class ReviewInfo(BaseModel):
     runtime_removed: float
     # What the picture scan looked for, so "nothing found" is not read as "nothing there".
     scanned_categories: list[str] | None
+    # The same for swearing. None for a title made before this was a choice (always checked).
+    swearing_checked: bool | None
 
 
 class PlaybackInfo(BaseModel):
@@ -158,4 +160,5 @@ class PlaybackService:
                 if manifest.scanned_categories is None
                 else [c.value for c in manifest.scanned_categories]
             ),
+            swearing_checked=manifest.swearing_checked,
         )

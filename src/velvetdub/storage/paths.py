@@ -33,8 +33,57 @@ class TitlePaths:
         return self.root / "audio" / "original.m4a"
 
     def audio_track(self, track_id: str) -> Path:
-        """Phase 2 dubs: audio/<track_id>.m4a"""
+        """Dubs: audio/<track_id>.m4a"""
         return self.root / "audio" / f"{safe_name(track_id)}.m4a"
+
+    # --- Dubbing: everything under dubbing/ can be thrown away and made again ---
+
+    @property
+    def dub_mix(self) -> Path:
+        """The film's whole sound, only while the voices are being separated."""
+        return self.root / "dubbing" / "mix.wav"
+
+    @property
+    def dub_stems(self) -> Path:
+        return self.root / "dubbing" / "stems"
+
+    @property
+    def dub_dialogue(self) -> Path:
+        return self.dub_stems / "dialogue.wav"
+
+    @property
+    def dub_background(self) -> Path:
+        return self.dub_stems / "background.wav"
+
+    @property
+    def dub_speech(self) -> Path:
+        """The dialogue stem, small enough to send to the transcription service."""
+        return self.root / "dubbing" / "dialogue.m4a"
+
+    @property
+    def dub_transcript(self) -> Path:
+        """What was said, in whole sentences, heard from the dialogue stem alone."""
+        return self.root / "dubbing" / "transcript.json"
+
+    def dub_translation(self, language: str) -> Path:
+        return self.root / "dubbing" / "translations" / f"{safe_name(language)}.json"
+
+    def dub_sample(self, speaker: str) -> Path:
+        """A stretch of one speaker's voice, sent to be copied."""
+        return self.root / "dubbing" / "samples" / f"{safe_name(speaker)}.wav"
+
+    @property
+    def dub_voices(self) -> Path:
+        return self.root / "dubbing" / "voices.json"
+
+    def dub_lines(self, language: str) -> Path:
+        """The index of recorded lines for one language."""
+        return self.root / "dubbing" / safe_name(language) / "lines.json"
+
+    def dub_line(self, language: str, name: str) -> Path:
+        """One recorded line. `name` carries the line's id and a key for what was recorded, so a
+        changed line gets a new file and an unchanged one is found again."""
+        return self.root / "dubbing" / safe_name(language) / "lines" / f"{safe_name(name)}.wav"
 
     @property
     def poster(self) -> Path:

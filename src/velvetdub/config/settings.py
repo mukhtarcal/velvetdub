@@ -28,12 +28,16 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     openai_api_key: SecretStr | None = None
     elevenlabs_api_key: SecretStr | None = None
+    cartesia_api_key: SecretStr | None = None
 
     # Storage
     data_dir: Path = Path("data")
 
     # Hostnames the local API answers to (blocks DNS-rebinding from web pages)
     allowed_hosts: list[str] = ["127.0.0.1", "localhost"]
+    # The web app's own addresses. The browser sends a film straight to the API (a proxy would
+    # hold the whole film in memory), which is a cross-origin request, so only these are approved.
+    web_origins: list[str] = ["http://127.0.0.1:5273", "http://localhost:5273"]
 
     # Phase 1 providers (names must be registered in velvetdub.providers)
     transcription_provider: str = "assemblyai"
@@ -50,10 +54,13 @@ class Settings(BaseSettings):
     # chance. Lower is more sensitive and catches subtler scenes, at the cost of false alarms.
     frame_threshold: float = Field(default=0.5, gt=0, le=1)
 
-    # Phase 2 providers (dubbing); unset until needed
-    tts_provider: str | None = None
-    tts_model: str | None = None
-    separation_provider: str | None = None
+    # Dubbing providers. Created only when a dub is asked for, so a missing Cartesia key or the
+    # optional dubbing install never blocks subtitles and filters.
+    tts_provider: str = "cartesia"
+    tts_model: str | None = None  # None = the provider's own default model
+    tts_concurrency: int = Field(default=4, ge=1, le=16)  # lines spoken at the same time
+    separation_provider: str = "demucs"
+    separation_model: str | None = None
 
     @field_validator(
         "anthropic_api_key",
@@ -61,10 +68,10 @@ class Settings(BaseSettings):
         "gemini_api_key",
         "openai_api_key",
         "elevenlabs_api_key",
+        "cartesia_api_key",
         "transcription_model",
-        "tts_provider",
         "tts_model",
-        "separation_provider",
+        "separation_model",
         mode="before",
     )
     @classmethod
@@ -80,6 +87,8 @@ class Settings(BaseSettings):
         "moderation_provider",
         "moderation_model",
         "text_moderation_provider",
+        "tts_provider",
+        "separation_provider",
     )
     @classmethod
     def _not_blank(cls, value: str) -> str:
@@ -91,6 +100,11 @@ class Settings(BaseSettings):
     def data_path(self) -> Path:
         """Absolute data directory (relative values resolve against the project root)."""
         return self.data_dir if self.data_dir.is_absolute() else PROJECT_ROOT / self.data_dir
+
+    @property
+    def model_cache_path(self) -> Path:
+        """Where downloaded model weights live: inside the project, never in ~/.cache."""
+        return self.data_path / "cache"
 
     @classmethod
     def settings_customise_sources(

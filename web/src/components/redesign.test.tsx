@@ -16,13 +16,25 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-const ALL = ['nudity', 'sexual_content', 'scary_scenes', 'violence'] as const
+const ALL = ['nudity', 'sexual_content', 'scary_scenes', 'violence', 'swearing'] as const
 
 describe('FilterTiles', () => {
   it('starts with every tile off and says so in words', () => {
     render(<FilterTiles value={[]} onChange={() => undefined} available={[...ALL]} />)
     for (const tile of screen.getAllByRole('button')) expect(tile.getAttribute('aria-pressed')).toBe('false')
-    expect(screen.getAllByText('Plays as is')).toHaveLength(4)
+    expect(screen.getAllByText('Plays as is')).toHaveLength(5)
+  })
+
+  it('offers swearing as a tile of its own, and says it is muted, not skipped', () => {
+    const onChange = vi.fn()
+    const { rerender } = render(<FilterTiles value={[]} onChange={onChange} available={[...ALL]} />)
+    fireEvent.click(screen.getByRole('button', { name: /Swearing/ }))
+    expect(onChange).toHaveBeenLastCalledWith(['swearing'])
+
+    rerender(<FilterTiles value={['swearing']} onChange={onChange} available={[...ALL]} />)
+    expect(screen.getByRole('button', { name: /Swearing/ }).getAttribute('aria-pressed')).toBe('true')
+    expect(screen.getByText('Will be muted')).toBeTruthy()
+    expect(screen.queryByText('Will be skipped')).toBeNull()
   })
 
   it('toggles a tile on and off', () => {
@@ -39,7 +51,9 @@ describe('FilterTiles', () => {
   })
 
   it('greys out what the scanner cannot check and says why', () => {
-    render(<FilterTiles value={[]} onChange={() => undefined} available={['nudity', 'sexual_content']} />)
+    render(
+      <FilterTiles value={[]} onChange={() => undefined} available={['nudity', 'sexual_content', 'swearing']} />,
+    )
     expect((screen.getByRole('button', { name: /Violence/ }) as HTMLButtonElement).disabled).toBe(true)
     expect((screen.getByRole('button', { name: /Nudity/ }) as HTMLButtonElement).disabled).toBe(false)
     expect(screen.getByRole('note').textContent).toBe('This scanner can’t check for scary scenes and violence.')
@@ -148,5 +162,74 @@ describe('ProcessPage curtains', () => {
     expect(await screen.findByText('We found nothing to skip.')).toBeTruthy()
     expect(screen.queryByText('Review the cuts')).toBeNull()
     expect(screen.getByRole('link', { name: 'Watch now' }).dataset.variant).toBe('primary')
+  })
+})
+
+describe('ProcessPage steps', () => {
+  const running: JobState = {
+    title_id: 't1',
+    status: 'running',
+    stages: { extract_audio: 'done', separate: 'running' },
+    error: null,
+  }
+
+  it('lists the dubbing steps when a dub was asked for', async () => {
+    vi.mocked(api.titleSummary).mockResolvedValue({
+      ...summary({}),
+      choices: { filter_categories: [], subtitle_languages: [], dub_languages: ['ar'] },
+    })
+    vi.mocked(api.progress).mockResolvedValue(running)
+    renderPage()
+    expect(await screen.findByText('Recording the dub')).toBeTruthy()
+    expect(screen.getByText('Copying each speaker’s voice')).toBeTruthy()
+    expect(screen.getByText(/The dub is the slowest part/)).toBeTruthy()
+  })
+
+  it('leaves them out when there is no dub, so nothing extra is shown', async () => {
+    vi.mocked(api.titleSummary).mockResolvedValue(summary({}))
+    vi.mocked(api.progress).mockResolvedValue(running)
+    renderPage()
+    expect(await screen.findByText('Writing subtitles')).toBeTruthy()
+    expect(screen.queryByText('Recording the dub')).toBeNull()
+    expect(screen.queryByText(/The dub is the slowest part/)).toBeNull()
+  })
+})
+
+describe('ProcessPage with nothing chosen', () => {
+  const nothing = {
+    ...summary(ALL_DONE),
+    choices: { filter_categories: [], subtitle_languages: [], dub_languages: [] },
+  }
+
+  beforeEach(() => {
+    vi.mocked(api.review).mockResolvedValue(review)
+  })
+
+  it('lists no steps while it finishes, since there is nothing to do', async () => {
+    vi.mocked(api.titleSummary).mockResolvedValue({ ...nothing, stages: {} })
+    vi.mocked(api.progress).mockResolvedValue({ ...job('running'), stages: {} })
+    renderPage()
+    expect(await screen.findByText('The projector is warming up')).toBeTruthy()
+    expect(screen.queryByText('Scanning the picture')).toBeNull()
+    expect(screen.queryByText('Transcribing the dialogue')).toBeNull()
+  })
+
+  it('says plainly that the film plays as it is, rather than that nothing was found', async () => {
+    vi.mocked(api.titleSummary).mockResolvedValue(nothing)
+    vi.mocked(api.progress).mockRejectedValue(new Error('none'))
+    renderPage()
+    expect(await screen.findByText('You chose nothing to skip, so the film plays as it is.')).toBeTruthy()
+    expect(screen.queryByText('We found nothing to skip.')).toBeNull()
+    expect(screen.getByRole('link', { name: 'Watch now' }).dataset.variant).toBe('primary')
+  })
+
+  it('still says nothing was found when a filter was chosen and found nothing', async () => {
+    vi.mocked(api.titleSummary).mockResolvedValue({
+      ...nothing,
+      choices: { filter_categories: ['violence'], subtitle_languages: [], dub_languages: [] },
+    })
+    vi.mocked(api.progress).mockRejectedValue(new Error('none'))
+    renderPage()
+    expect(await screen.findByText('We found nothing to skip.')).toBeTruthy()
   })
 })

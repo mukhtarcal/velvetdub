@@ -1,12 +1,15 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 
 import pytest
 
 from velvetdub.config.settings import Settings
 from velvetdub.container import Container, build_container
-from velvetdub.domain.export import EditPlan
+from velvetdub.domain.dubbing import Placement
+from velvetdub.domain.export import EditPlan, Span
+from velvetdub.media.dialogue import wav_seconds
 from velvetdub.media.tools import MediaTool, ScanClip
+from velvetdub.providers.fake import write_silence
 
 
 class FakeMediaTool(MediaTool):
@@ -14,6 +17,9 @@ class FakeMediaTool(MediaTool):
         self.extract_calls = 0
         self.poster_calls: list[float] = []
         self.render_calls: list[EditPlan] = []
+        self.cut_calls: list[list[Span]] = []
+        self.tempo_calls: list[float] = []
+        self.mix_calls: list[list[Placement]] = []
 
     def extract_audio(self, source: Path, dest: Path) -> None:
         self.extract_calls += 1
@@ -59,6 +65,23 @@ class FakeMediaTool(MediaTool):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(b"jpeg")
 
+    def extract_mix(self, source: Path, dest: Path) -> None:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"fake-mix")
+
+    def cut_audio(self, source: Path, spans: Sequence[Span], dest: Path) -> None:
+        self.cut_calls.append(list(spans))
+        write_silence(dest, sum(end - start for start, end in spans))
+
+    def change_tempo(self, source: Path, dest: Path, factor: float) -> None:
+        self.tempo_calls.append(factor)
+        write_silence(dest, wav_seconds(source) / factor)
+
+    def mix_dub(self, lines: Sequence[Placement], background: Path, dest: Path) -> None:
+        self.mix_calls.append(list(lines))
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"fake-dub")
+
 
 @pytest.fixture
 def media() -> FakeMediaTool:
@@ -75,6 +98,8 @@ def settings(tmp_path: Path) -> Settings:
         transcription_provider="fake",
         translation_provider="fake",
         moderation_provider="fake",
+        tts_provider="fake",
+        separation_provider="fake",
     )
 
 

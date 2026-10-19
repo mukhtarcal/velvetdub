@@ -15,11 +15,14 @@ from velvetdub.features.scene_filtering.categories import PICTURE_CATEGORIES
 from velvetdub.media.tools import ScanClip
 from velvetdub.pipeline.context import ProcessOptions
 from velvetdub.pipeline.observer import NullObserver
+from velvetdub.pipeline.stages import all_stages, dubbing_stages
 from velvetdub.pipeline.stages.visual_scan import ScanUsage
 from velvetdub.providers.fake import FakeVideoAnalyzer
 from velvetdub.storage.artifacts import read_model
 
 ALL_FILTERS = list(PICTURE_CATEGORIES)
+# With no dub asked for these do nothing, but they still count as finished (and then as skipped).
+DUB_STAGES = {stage.name for stage in dubbing_stages()}
 
 
 class RecordingObserver(NullObserver):
@@ -65,7 +68,9 @@ def test_filters_merge_visual_and_spoken_detections(
     container: Container, source_file: Path
 ) -> None:
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions(filter_categories=ALL_FILTERS))
+    container.process(
+        manifest, ProcessOptions(filter_categories=[*ALL_FILTERS, FilterCategory.SWEARING])
+    )
 
     timeline = read_model(container.store.paths(manifest).filters, FilterTimeline)
     categories = [e.category for e in timeline.events]
@@ -78,13 +83,14 @@ def test_rerun_skips_finished_stages(
     container: Container, source_file: Path, media: FakeMediaTool
 ) -> None:
     manifest = container.store.create("local", "Movie", source_file)
-    container.process(manifest, ProcessOptions())
+    options = ProcessOptions(subtitle_languages=["en"])
+    container.process(manifest, options)
 
     observer = RecordingObserver()
-    container.process(manifest, ProcessOptions(), observer)
+    container.process(manifest, options, observer)
 
     assert observer.started == []
-    assert len(observer.skipped) == 6
+    assert len(observer.skipped) == len(all_stages())
     assert media.extract_calls == 1
 
 
@@ -98,7 +104,10 @@ def test_adding_a_language_reruns_only_dependent_stages(
     container.process(manifest, ProcessOptions(subtitle_languages=["en", "es"]), observer)
 
     assert observer.started == ["translate", "subtitles"]
-    assert set(observer.skipped) == {"extract_audio", "transcribe", "visual_scan", "build_filters"}
+    assert (
+        set(observer.skipped)
+        == {"extract_audio", "transcribe", "visual_scan", "build_filters"} | DUB_STAGES
+    )
 
 
 def test_changing_the_model_invalidates_that_stage(container: Container, source_file: Path) -> None:
@@ -113,7 +122,10 @@ def test_changing_the_model_invalidates_that_stage(container: Container, source_
 
     # The scan re-runs with the new model, and the filter merge that consumes it follows.
     assert observer.started == ["visual_scan", "build_filters"]
-    assert set(observer.skipped) == {"extract_audio", "transcribe", "translate", "subtitles"}
+    assert (
+        set(observer.skipped)
+        == {"extract_audio", "transcribe", "translate", "subtitles"} | DUB_STAGES
+    )
 
 
 def test_failed_stage_is_recorded_and_resumable(container: Container, source_file: Path) -> None:
@@ -122,7 +134,7 @@ def test_failed_stage_is_recorded_and_resumable(container: Container, source_fil
     manifest = container.store.create("local", "Movie", source_file)
 
     with pytest.raises(StageFailedError) as info:
-        container.process(manifest, ProcessOptions())
+        container.process(manifest, ProcessOptions(filter_categories=[FilterCategory.SWEARING]))
 
     assert info.value.stage == "transcribe"
     assert manifest.stages["extract_audio"].status is StageStatus.DONE
@@ -241,9 +253,10 @@ def test_with_nothing_chosen_the_run_finishes_with_no_scan_and_no_subtitles(
     assert manifest.subtitle_tracks == []
     assert not paths.subtitles("en").exists()
     assert all(r.status is StageStatus.DONE for r in manifest.stages.values())
-    # Swearing still comes from the words, with no choice needed.
-    timeline = read_model(paths.filters, FilterTimeline)
-    assert [e.category for e in timeline.events] == [FilterCategory.SWEARING]
+    # Swearing is a choice like the others: not chosen, so not looked for.
+    assert read_model(paths.filters, FilterTimeline).events == []
+    assert manifest.swearing_checked is False
+    assert not paths.transcript.exists()
 
 
 def test_an_unchanged_empty_run_is_skipped_the_second_time(
@@ -255,7 +268,7 @@ def test_an_unchanged_empty_run_is_skipped_the_second_time(
     observer = RecordingObserver()
     container.process(manifest, ProcessOptions(), observer)
     assert observer.started == []
-    assert len(observer.skipped) == 6
+    assert len(observer.skipped) == len(all_stages())
 
 
 def test_choosing_filters_later_scans_and_rebuilds_only_what_depends_on_them(

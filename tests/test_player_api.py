@@ -16,6 +16,8 @@ from velvetdub.services.posters import PosterService
 from velvetdub.storage.artifacts import read_model
 
 CLIENT = {"x-velvetdub-client": "test"}
+# Everything that can be chosen: the four picture categories and swearing.
+EVERYTHING = [*PICTURE_CATEGORIES, FilterCategory.SWEARING]
 
 
 @pytest.fixture
@@ -23,7 +25,7 @@ def processed(container: Container, source_file: Path) -> Manifest:
     manifest = container.store.create("local", "Movie", source_file)
     container.process(
         manifest,
-        ProcessOptions(subtitle_languages=["en", "es"], filter_categories=list(PICTURE_CATEGORIES)),
+        ProcessOptions(subtitle_languages=["en", "es"], filter_categories=EVERYTHING),
     )
     return manifest
 
@@ -66,7 +68,7 @@ def test_video_supports_range_requests(client: TestClient, processed: Manifest) 
 def test_audio_track_is_served_from_the_manifest(client: TestClient, processed: Manifest) -> None:
     ok = client.get(f"{base(processed)}/media/audio/original")
     assert ok.status_code == 200
-    assert ok.content == b"fake-audio"
+    assert ok.content == b"fake-video"  # the film's own sound, straight from the film
     assert client.get(f"{base(processed)}/media/audio/nope").status_code == 404
     assert client.get(f"{base(processed)}/media/audio/..%2F..%2Fmanifest").status_code == 404
 
@@ -379,7 +381,7 @@ def test_spoken_words_do_not_keep_the_poster_away(
 ) -> None:
     # The fake transcript has swearing at 4-6 s; only picture scenes matter for the poster.
     manifest = container.store.create("local", "Words", source_file)
-    container.process(manifest, ProcessOptions())
+    container.process(manifest, ProcessOptions(filter_categories=[FilterCategory.SWEARING]))
     assert any(
         e.category is FilterCategory.SWEARING
         for e in read_model(container.store.paths(manifest).filters, FilterTimeline).events
@@ -412,7 +414,7 @@ def test_rebuilding_the_filters_drops_the_saved_poster(
     container.providers.__dict__.pop("video_analyzer", None)
     container.process(
         processed,
-        ProcessOptions(filter_categories=list(PICTURE_CATEGORIES), subtitle_languages=["en", "es"]),
+        ProcessOptions(filter_categories=EVERYTHING, subtitle_languages=["en", "es"]),
     )
     assert not container.store.paths(processed).poster.exists()
 

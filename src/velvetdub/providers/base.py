@@ -16,6 +16,7 @@ from velvetdub.domain.filtering import FilterEvent
 from velvetdub.domain.frames import FrameJudgement, FrameQuestion
 from velvetdub.domain.transcript import Transcript
 from velvetdub.domain.usage import TokenUsage
+from velvetdub.errors import ProviderError
 
 
 class Provider(ABC):
@@ -75,18 +76,38 @@ class TextModerator(Provider):
 
 
 class SourceSeparator(Provider):
-    """Phase 2: split dialogue from music and effects."""
+    """Splits dialogue from music and effects."""
 
     @abstractmethod
-    def separate(self, audio_path: Path, out_dir: Path) -> SeparatedStems: ...
+    def separate(self, audio_path: Path, out_dir: Path) -> SeparatedStems:
+        """Read a 44.1 kHz stereo WAV and write `dialogue.wav` and `background.wav` (stereo,
+        16-bit, same rate and length) into `out_dir`."""
 
 
 class SpeechSynthesizer(Provider):
-    """Phase 2: text to speech."""
+    """Text to speech. What to say, and how to fit it into the film, belongs to
+    `velvetdub.features.dubbing`; this only turns text into a voice."""
+
+    supports_cloning: ClassVar[bool] = False
+    # The fastest pace the service allows (1.0 = no speed control). Fitting never asks for more.
+    max_speed: ClassVar[float] = 1.0
+
+    @abstractmethod
+    def languages(self) -> frozenset[str]:
+        """Language codes this service can speak."""
 
     @abstractmethod
     def list_voices(self, language: str | None = None) -> list[Voice]: ...
 
     @abstractmethod
     def synthesize(self, request: SynthesisRequest, dest: Path) -> Path:
-        """Write audio for one line to `dest` and return it."""
+        """Write one line to `dest` as a mono 16-bit WAV at `LINE_SAMPLE_RATE`, and return it."""
+
+    def clone_voice(self, sample: Path, name: str, language: str) -> Voice:
+        """Make a voice that sounds like the speaker in `sample` (`language` is the language of
+        the recording). Only services with `supports_cloning` implement this."""
+        raise ProviderError(f"{self.name} can't copy voices.")
+
+    def delete_voice(self, voice_id: str) -> None:
+        """Remove a voice made by `clone_voice`."""
+        raise ProviderError(f"{self.name} can't copy voices.")

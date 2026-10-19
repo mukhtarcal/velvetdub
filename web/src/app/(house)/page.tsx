@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'motion/react'
 import { Film, Upload } from 'lucide-react'
 import { api, uploadTitle } from '@/api/client'
-import type { ScanCategory } from '@/api/types'
+import type { FilterChoice } from '@/api/types'
 import { FilterTiles } from '@/components/FilterTiles'
 import { LanguagePicker } from '@/components/LanguagePicker'
+import { OptionToggle } from '@/components/OptionToggle'
 import { Proscenium } from '@/components/brand/Proscenium'
 import { TitleReveal } from '@/components/brand/TitleReveal'
 import { ErrorNote, SectionHead } from '@/components/PageHeader'
@@ -15,7 +16,15 @@ import { Panel } from '@/components/review/Panel'
 import { Button, buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Progress } from '@/components/ui/progress'
-import { needsLanguage, processChoices, skipSummary, submitState, subtitleSummary } from '@/lib/addTitle'
+import {
+  dubbingSummary,
+  needsDubLanguage,
+  needsLanguage,
+  processChoices,
+  skipSummary,
+  submitState,
+  subtitleSummary,
+} from '@/lib/addTitle'
 import { saveAutostart } from '@/lib/autostart'
 import { FILTERS } from '@/lib/filters'
 import { formatBytes, formatTime } from '@/lib/format'
@@ -37,25 +46,34 @@ export default function AddTitlePage() {
   const [file, setFile] = useState<File | null>(null)
   const [runtime, setRuntime] = useState<number | null>(null)
   const [name, setName] = useState('')
-  const [filters, setFilters] = useState<ScanCategory[]>([])
+  const [filters, setFilters] = useState<FilterChoice[]>([])
   const [subtitlesOn, setSubtitlesOn] = useState(false)
   const [languages, setLanguages] = useState<string[]>([])
-  const [available, setAvailable] = useState<ScanCategory[]>(ALL_FILTER_IDS)
+  const [dubbingOn, setDubbingOn] = useState(false)
+  const [dubLanguages, setDubLanguages] = useState<string[]>([])
+  const [available, setAvailable] = useState<FilterChoice[]>(ALL_FILTER_IDS)
+  // Which languages a dub can be made in. null until the server has said; empty if it can't dub yet.
+  const [dubAvailable, setDubAvailable] = useState<string[] | null>(null)
   const [progress, setProgress] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
 
   const uploading = progress !== null
 
-  // Ask which filters the scanner can check. If the server can't say, offer all of them and let
-  // the server refuse with a plain message.
+  // Ask what this install can do: which filters the scanner can check, and which languages a dub
+  // can be made in. If the server can't say, offer every filter and no dub, and let the server
+  // refuse anything it can't do with a plain message.
   useEffect(() => {
     api.capabilities().then(
       (c) => {
-        setAvailable(c.scan_categories)
-        setFilters((chosen) => chosen.filter((id) => c.scan_categories.includes(id)))
+        // Swearing is found from the words, not scanned, so it is always on offer.
+        const offered: FilterChoice[] = [...c.scan_categories, 'swearing']
+        setAvailable(offered)
+        setFilters((chosen) => chosen.filter((id) => offered.includes(id)))
+        setDubAvailable(c.dub_languages ?? [])
+        setDubLanguages((chosen) => chosen.filter((code) => (c.dub_languages ?? []).includes(code)))
       },
-      () => undefined,
+      () => setDubAvailable([]),
     )
   }, [])
 
@@ -79,7 +97,8 @@ export default function AddTitlePage() {
     if (dropped) choose(dropped)
   }
 
-  const form = { hasFile: !!file, name, filters, subtitlesOn, languages }
+  const form = { hasFile: !!file, name, filters, subtitlesOn, languages, dubbingOn, dubLanguages }
+  const canDub = (dubAvailable?.length ?? 0) > 0
   const { canSubmit, hint } = submitState(form)
   const percent = Math.round((progress ?? 0) * 100)
 
@@ -196,43 +215,26 @@ export default function AddTitlePage() {
 
           <Panel id="filters-h" title="Filters" note="Optional">
             <p className="m-0 max-w-[640px]">
-              Choose what to skip. We scan the picture for these and show you every cut before you watch. You can
-              keep any of them in.
+              Choose what to skip or mute. Only what you choose is processed, and we show you every cut before you
+              watch. You can keep any of them in.
             </p>
             <FilterTiles value={filters} onChange={setFilters} available={available} disabled={uploading} />
             <p className="meta m-0">
-              Swearing in the dialogue is found from the words themselves, so it needs no scan. Once the video is done
-              processing you can remove whatever swearing you choose.
+              Scenes are found by scanning the picture. Swearing is found from the words in the dialogue, so choosing it
+              means the dialogue is transcribed. Choose nothing and the film is only stored.
             </p>
           </Panel>
 
           <section className="flex flex-col gap-5" aria-labelledby="subs-h">
             <SectionHead id="subs-h" title="Subtitles" note="Optional" />
-            <div className="flex w-fit gap-0 border border-border-control bg-panel p-1" role="radiogroup" aria-label="Subtitles">
-              {[
-                { on: false, label: 'No subtitles' },
-                { on: true, label: 'Add subtitles' },
-              ].map((option) => (
-                <button
-                  key={option.label}
-                  type="button"
-                  role="radio"
-                  aria-checked={subtitlesOn === option.on}
-                  disabled={uploading}
-                  onClick={() => setSubtitlesOn(option.on)}
-                  className="relative min-h-11 cursor-pointer px-5 text-[15px] text-ink-soft transition-colors aria-checked:text-ink"
-                >
-                  {subtitlesOn === option.on && (
-                    <motion.span
-                      layoutId="subtitle-choice"
-                      className="absolute inset-0 bg-velvet"
-                      transition={{ type: 'spring', stiffness: 500, damping: 40 }}
-                    />
-                  )}
-                  <span className="relative">{option.label}</span>
-                </button>
-              ))}
-            </div>
+            <OptionToggle
+              label="Subtitles"
+              layoutId="subtitle-choice"
+              value={subtitlesOn}
+              options={['No subtitles', 'Add subtitles']}
+              onChange={setSubtitlesOn}
+              disabled={uploading}
+            />
             <AnimatePresence initial={false}>
               {subtitlesOn && (
                 <motion.div
@@ -251,6 +253,49 @@ export default function AddTitlePage() {
               )}
             </AnimatePresence>
           </section>
+
+          <section className="flex flex-col gap-5" aria-labelledby="dub-h">
+            <SectionHead id="dub-h" title="Dubbing" note="Optional" />
+            <OptionToggle
+              label="Dubbing"
+              layoutId="dubbing-choice"
+              value={dubbingOn}
+              options={['No dubbing', 'Add dubbing']}
+              onChange={setDubbingOn}
+              disabled={uploading || !canDub}
+            />
+            {dubAvailable !== null && !canDub && (
+              <p className="m-0 text-[14.5px] text-ink-soft">Dubbing isn’t set up on this computer yet.</p>
+            )}
+            <AnimatePresence initial={false}>
+              {dubbingOn && canDub && (
+                <motion.div
+                  className="flex flex-col gap-3 overflow-hidden"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: EASE }}
+                >
+                  <div className="meta">Languages</div>
+                  <LanguagePicker
+                    value={dubLanguages}
+                    onChange={setDubLanguages}
+                    disabled={uploading}
+                    label="Dubbing languages"
+                    only={dubAvailable ?? []}
+                  />
+                  {needsDubLanguage(form) && (
+                    <div className="text-[14.5px] text-ink-soft">Choose at least one language, or pick No dubbing.</div>
+                  )}
+                  <p className="meta m-0 max-w-[640px]">
+                    A dub speaks in a copy of each person’s own voice, with the music and sound effects kept. It is the
+                    slowest step and uses credits with the voice service. A film is never dubbed into the language it
+                    is already in.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </section>
         </div>
 
         {/* Your showing: what will happen, and the one button. Sticks beside the form on wide screens. */}
@@ -262,12 +307,16 @@ export default function AddTitlePage() {
             </div>
             <dl className="m-0 flex flex-col gap-4 border-y border-line py-5">
               <div className="flex flex-col gap-1">
-                <dt className="meta">Skip</dt>
+                <dt className="meta">Filters</dt>
                 <dd className="m-0 text-ink">{skipSummary(filters)}</dd>
               </div>
               <div className="flex flex-col gap-1">
                 <dt className="meta">Subtitles</dt>
                 <dd className="m-0 text-ink">{subtitleSummary(form)}</dd>
+              </div>
+              <div className="flex flex-col gap-1">
+                <dt className="meta">Dubbing</dt>
+                <dd className="m-0 text-ink">{dubbingSummary(form)}</dd>
               </div>
             </dl>
             {error && <ErrorNote message={error} />}

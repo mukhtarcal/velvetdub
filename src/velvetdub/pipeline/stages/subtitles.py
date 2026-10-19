@@ -19,6 +19,8 @@ class SubtitlesStage(Stage):
     name = "subtitles"
 
     def inputs(self, ctx: PipelineContext) -> list[Path]:
+        if not ctx.options.subtitle_languages:
+            return []
         return [ctx.paths.transcript, *self._translations(ctx)]
 
     def outputs(self, ctx: PipelineContext) -> list[Path]:
@@ -32,6 +34,8 @@ class SubtitlesStage(Stage):
         return [ctx.paths.translation(lang) for lang in ctx.options.subtitle_languages]
 
     def run(self, ctx: PipelineContext) -> None:
+        if not ctx.options.subtitle_languages:
+            return
         transcript = read_model(ctx.paths.transcript, Transcript)
         timing = {s.id: s for s in transcript.segments}
         for language in ctx.options.subtitle_languages:

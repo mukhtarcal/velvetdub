@@ -3,6 +3,7 @@
 Select with e.g. TRANSCRIPTION_PROVIDER=fake.
 """
 
+import math
 import re
 import wave
 from collections.abc import Sequence
@@ -119,6 +120,23 @@ def write_silence(
         out.writeframes(b"\x00\x00" * channels * int(seconds * rate))
 
 
+def write_tone(dest: Path, seconds: float, *, padding: float = 0.0) -> None:
+    """A WAV of a quiet steady tone (something to hear), with `padding` seconds of silence at each
+    end, like a voice that pads its lines."""
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    rate = LINE_SAMPLE_RATE
+    tone = (
+        int(6000 * math.sin(2 * math.pi * 220 * n / rate)).to_bytes(2, "little", signed=True)
+        for n in range(int(seconds * rate))
+    )
+    quiet = b"\x00\x00" * int(padding * rate)
+    with wave.open(str(dest), "wb") as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(rate)
+        out.writeframes(quiet + b"".join(tone) + quiet)
+
+
 class FakeSeparator(SourceSeparator):
     """Writes two short silent stems, as the real one would for a film."""
 
@@ -132,8 +150,10 @@ class FakeSeparator(SourceSeparator):
 
 
 class FakeSynthesizer(SpeechSynthesizer):
-    """Speaks every line as silence of a length that follows its text: 0.05 s a character, divided
-    by the speed. Records what it was asked, so tests can count calls."""
+    """Speaks every line as a quiet tone as long as its text: 0.05 s a character, divided by the
+    speed. Records what it was asked, so tests can count calls. `padding` adds silence at both
+    ends of every line, as real voices do; `plan` is a list of lengths (seconds, 0 for a take
+    that comes back silent) used for the next takes in order, to stand in for an erratic voice."""
 
     name = "fake"
     supports_cloning = True
@@ -143,6 +163,8 @@ class FakeSynthesizer(SpeechSynthesizer):
         super().__init__(model)
         self.spoken: list[SynthesisRequest] = []
         self.cloned: list[str] = []
+        self.padding = 0.0
+        self.plan: list[float] = []
 
     def languages(self) -> frozenset[str]:
         return frozenset({"en", "es", "ar"})
@@ -152,7 +174,13 @@ class FakeSynthesizer(SpeechSynthesizer):
 
     def synthesize(self, request: SynthesisRequest, dest: Path) -> Path:
         self.spoken.append(request)
-        write_silence(dest, max(0.2, 0.05 * len(request.text)) / request.speed)
+        length = (
+            self.plan.pop(0) if self.plan else max(0.2, 0.05 * len(request.text)) / request.speed
+        )
+        if length <= 0:
+            write_silence(dest, 0.3)  # a take that came back with no sound
+        else:
+            write_tone(dest, length, padding=self.padding)
         return dest
 
     def clone_voice(self, sample: Path, name: str, language: str) -> Voice:

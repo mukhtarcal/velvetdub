@@ -61,6 +61,11 @@ class TitlePaths:
         return self.root / "dubbing" / "dialogue.m4a"
 
     @property
+    def dub_heard(self) -> Path:
+        """The transcription as the service returned it, before it is shaped into sentences."""
+        return self.root / "dubbing" / "heard.json"
+
+    @property
     def dub_transcript(self) -> Path:
         """What was said, in whole sentences, heard from the dialogue stem alone."""
         return self.root / "dubbing" / "transcript.json"

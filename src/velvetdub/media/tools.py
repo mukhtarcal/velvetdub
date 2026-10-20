@@ -1,6 +1,7 @@
 """Media tooling behind an interface, so tests can run without ffmpeg."""
 
 import math
+import re
 import shutil
 import subprocess
 from abc import ABC, abstractmethod
@@ -9,10 +10,11 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict
 
-from velvetdub.domain.dubbing import LINE_SAMPLE_RATE, Placement
+from velvetdub.domain.dubbing import LINE_SAMPLE_RATE, Ambience, Placement
 from velvetdub.domain.export import EditPlan, Span
 from velvetdub.errors import ToolNotFoundError
-from velvetdub.media.dialogue import assemble_dialogue
+from velvetdub.media.dialogue import assemble_dialogue, wav_seconds
+from velvetdub.media.envelope import write_gain_envelope
 from velvetdub.media.smartcut import SmartCutRenderer
 
 
@@ -82,9 +84,40 @@ class MediaTool(ABC):
         The result is in the same format as the input."""
 
     @abstractmethod
-    def mix_dub(self, lines: Sequence[Placement], background: Path, dest: Path) -> None:
-        """Put the spoken lines at their start times over the background sound, even out the
-        loudness, and write the result as an AAC file at `dest`."""
+    def level_profile(self, source: Path, step: float = 1.0) -> list[float]:
+        """How loud `source`'s sound is, one reading (dB, RMS) every `step` seconds from the
+        start. Silence reads as a very low number, never minus infinity."""
+
+    @abstractmethod
+    def measure_loudness(self, source: Path) -> float | None:
+        """The integrated loudness (LUFS) of `source`'s sound, or None if it is silent."""
+
+    @abstractmethod
+    def mix_dub(
+        self,
+        lines: Sequence[Placement],
+        background: Path,
+        dest: Path,
+        *,
+        ambience: Ambience | None = None,
+        loudness: float | None = None,
+    ) -> None:
+        """Put the spoken lines at their start times over the background sound and write the
+        result as an AAC file at `dest`. `ambience` keeps some of the original dialogue stem
+        (crowds, chanting) where no actor is speaking. `loudness` (LUFS) makes the result as loud
+        as the original film, so switching to the dub does not change the volume; without it the
+        sound is normalised to a standard level."""
+
+
+# Silence reads as this, not minus infinity, so levels can be compared and averaged.
+_MIN_LEVEL = -120.0
+_LOUDNESS = re.compile(r"I:\s+(-?\d+(?:\.\d+)?)\s+LUFS")
+
+
+def _integrated_loudness(report: str) -> float | None:
+    """The integrated loudness from ffmpeg's ebur128 summary (the last reading it printed)."""
+    found = _LOUDNESS.findall(report)
+    return float(found[-1]) if found else None
 
 
 POSTER_WIDTH = 640
@@ -206,20 +239,74 @@ class FFmpegMediaTool(MediaTool):
         command += ["-ar", str(LINE_SAMPLE_RATE), "-ac", "1", "-c:a", "pcm_s16le", str(dest)]
         subprocess.run(command, check=True, capture_output=True)
 
-    def mix_dub(self, lines: Sequence[Placement], background: Path, dest: Path) -> None:
+    def level_profile(self, source: Path, step: float = 1.0) -> list[float]:
+        # One reading per `step`: ffmpeg is told to cut the sound into frames of that length,
+        # measure each, and print the level, so the film is read once and never held in memory.
+        graph = f"asetnsamples=n={round(44100 * step)}:p=0,astats=metadata=1:reset=1,"
+        graph += "ametadata=print:key=lavfi.astats.Overall.RMS_level:file=-"
+        command = [self._ffmpeg, "-hide_banner", "-v", "error", "-i", str(source), "-vn"]
+        command += ["-ar", "44100", "-af", graph, "-f", "null", "-"]
+        result = subprocess.run(command, check=True, capture_output=True, text=True)
+        levels: list[float] = []
+        for line in result.stdout.splitlines():
+            if "RMS_level=" in line:
+                value = line.split("=", 1)[1].strip()
+                levels.append(
+                    _MIN_LEVEL if value in ("-inf", "inf") else max(_MIN_LEVEL, float(value))
+                )
+        return levels
+
+    def measure_loudness(self, source: Path) -> float | None:
+        command = [self._ffmpeg, "-hide_banner", "-nostats", "-i", str(source), "-vn"]
+        command += ["-af", "ebur128", "-f", "null", "-"]
+        return _integrated_loudness(
+            subprocess.run(command, check=True, capture_output=True, text=True).stderr
+        )
+
+    def mix_dub(
+        self,
+        lines: Sequence[Placement],
+        background: Path,
+        dest: Path,
+        *,
+        ambience: Ambience | None = None,
+        loudness: float | None = None,
+    ) -> None:
         dest.parent.mkdir(parents=True, exist_ok=True)
         dialogue = dest.with_name(f"{dest.stem}.dialogue.wav")
+        curve = dest.with_name(f"{dest.stem}.volume.wav")
         partial = dest.with_name(f"{dest.stem}.partial{dest.suffix}")
         try:
             assemble_dialogue(lines, dialogue)
-            graph = "[1:a]aresample=44100[d];[0:a][d]amix=inputs=2:normalize=0:duration=first,"
-            graph += "loudnorm=I=-16:TP=-1.5:LRA=11"
-            command = [self._ffmpeg, "-y", "-i", str(background), "-i", str(dialogue)]
-            command += ["-filter_complex", graph, "-c:a", "aac", "-b:a", "160k", str(partial)]
+            command = [self._ffmpeg, "-y", "-hide_banner", "-nostats"]
+            command += ["-i", str(background), "-i", str(dialogue)]
+            graph = "[1:a]aresample=44100[d];"
+            if ambience is None:
+                graph += "[0:a][d]amix=inputs=2:normalize=0:duration=first[mix];"
+            else:
+                write_gain_envelope(curve, ambience.windows, wav_seconds(background))
+                command += ["-i", str(ambience.stem), "-i", str(curve)]
+                graph += "[3:a]aresample=44100,aformat=channel_layouts=stereo[volume];"
+                graph += "[2:a][volume]amultiply[crowd];"
+                graph += "[0:a][d][crowd]amix=inputs=3:normalize=0:duration=first[mix];"
+            if loudness is None:
+                final = graph + "[mix]loudnorm=I=-16:TP=-1.5:LRA=11[out]"
+            else:
+                # Measure the mix first (nothing is written), then set its volume so it is as
+                # loud as the original film, with a limiter so the peaks cannot clip.
+                measuring = [*command, "-filter_complex", graph + "[mix]ebur128[out]"]
+                measuring += ["-map", "[out]", "-f", "null", "-"]
+                heard = subprocess.run(measuring, check=True, capture_output=True, text=True).stderr
+                measured = _integrated_loudness(heard)
+                gain = 0.0 if measured is None else loudness - measured
+                final = graph + f"[mix]volume={gain:.2f}dB,alimiter=limit=0.97:level=0[out]"
+            command += ["-filter_complex", final, "-map", "[out]"]
+            command += ["-c:a", "aac", "-b:a", "160k", str(partial)]
             subprocess.run(command, check=True, capture_output=True)
             partial.replace(dest)
         finally:
             dialogue.unlink(missing_ok=True)
+            curve.unlink(missing_ok=True)
             partial.unlink(missing_ok=True)
 
     def render_cleaned(
